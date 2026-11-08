@@ -1,5 +1,6 @@
 import { listProducts, setCostForSku, setDimsForSku } from "../services/productService.js";
 import { getAuthStatus } from "../services/mlAuth.js";
+import { getSkuMedidas } from "../services/productService.js";
 
 export async function showProducts(req, res) {
   const userId = req.user.id;
@@ -25,4 +26,12 @@ export async function saveProductDims(req, res) {
   if (!sku) return res.status(400).json({ error: "SKU ausente." });
   const result = await setDimsForSku(req.user.id, sku, { largura, altura, comprimento, pesoReal });
   res.json({ ok: true, ...result });
+}
+
+export async function pesoDoSku(req, res) {
+  const sku = String(req.query.sku || "").trim();
+  if (!sku) return res.status(400).json({ ok: false, error: "SKU ausente." });
+  const medidas = await getSkuMedidas(req.user.id, sku);
+  if (!medidas) return res.status(404).json({ ok: false, error: "Nenhum anúncio com esse SKU." });
+  res.json({ ok: true, ...medidas });
 }

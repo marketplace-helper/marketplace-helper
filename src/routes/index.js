@@ -29,7 +29,7 @@ import {
 import { exportExcel, exportProducts } from "../controllers/exportController.js";
 import { showRules, saveRules } from "../controllers/rulesController.js";
 import { showSimulator, runSimulator } from "../controllers/simulatorController.js";
-import { showProducts, saveProductCost, saveProductDims } from "../controllers/productController.js";
+import { showProducts, saveProductCost, saveProductDims, pesoDoSku} from "../controllers/productController.js";
 import { showFrete } from "../controllers/freteController.js";
 import { showMedir } from "../controllers/medirController.js";
 
@@ -53,6 +53,7 @@ router.get("/anuncios", showItems);
 router.get("/dashboard", showDashboard);
 router.get("/produtos", showProducts);
 router.get("/medir", showMedir);
+router.get("/medir/peso", requireAuth, pesoDoSku);
 router.get("/regras", showRules);
 router.get("/simulador", showSimulator);
 router.get("/frete", showFrete);

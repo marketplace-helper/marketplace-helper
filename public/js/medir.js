@@ -1,10 +1,11 @@
-// Simulação do fluxo de medição (câmera + balança Bluetooth) da página /medir.
+// Fluxo de medição da página /medir: câmera (simulada) + balança (ESP32 que grava o peso no SKU pela API).
 (function () {
   const $ = (id) => document.getElementById(id);
   const btnMedir = $("btnMedir");
   if (!btnMedir) return;
 
   const btnBalanca = $("btnBalanca");
+  const labelBalanca = btnBalanca.innerHTML; // para restaurar depois da espera
   const btnSalvar = $("btnSalvarMedicao");
 
   const rnd = (a, b, dec = 0) => {
@@ -34,26 +35,75 @@
     }, 1800);
   });
 
-  // --- Balança: recebe o peso ---
-  btnBalanca.addEventListener("click", function () {
+  // --- Balança: espera o ESP32 (físico ou simulado no Wokwi) gravar o peso no SKU ---
+  // O ESP32 envia o peso para POST /api/iot/medidas. Aqui lemos o peso do SKU ao clicar e
+  // consultamos até ele mudar. Por isso: clique em "conectar" ANTES de pesar o produto.
+  // Limitação: uma pesagem com o mesmo valor da anterior não é percebida.
+  let scaleJob = null; // existe enquanto aguarda; um novo clique cancela
+
+  async function fetchPeso(sku) {
+    const r = await fetch("/medir/peso?sku=" + encodeURIComponent(sku));
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || !data.ok) throw new Error(data.error || "Falha ao consultar o peso.");
+    return data.pesoReal; // número ou null
+  }
+
+  btnBalanca.addEventListener("click", async function () {
+    if (scaleJob) { scaleJob.cancelled = true; return; }
+
+    const sku = $("medSku").value.trim();
+    if (!sku) { alert("Informe o SKU antes de pesar: a balança grava o peso nesse SKU."); return; }
+
     const scale = $("medScale");
     const status = $("medScaleStatus");
     const valEl = $("medScaleValue");
+    const job = { cancelled: false };
+    scaleJob = job;
+
     scale.classList.remove("done");
     scale.classList.add("scanning");
-    status.textContent = "Conectando à balança…";
     valEl.textContent = "…";
-    btnBalanca.disabled = true;
-    setTimeout(function () {
-      const peso = rnd(0.2, 5, 2);
-      const txt = String(peso).replace(".", ",");
-      $("medPeso").value = txt;
-      valEl.textContent = txt + " kg";
+    status.textContent = "Lendo o peso atual do SKU…";
+    btnBalanca.innerHTML = '<i class="bi bi-x-circle"></i> Cancelar espera';
+
+    try {
+      const antes = await fetchPeso(sku);
+      status.textContent = "Aguardando a balança… coloque o produto";
+
+      const limite = Date.now() + 60000;
+      let peso = null;
+      while (!job.cancelled && Date.now() < limite) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        if (job.cancelled) break;
+        try {
+          const atual = await fetchPeso(sku);
+          if (atual != null && atual !== antes) { peso = atual; break; }
+        } catch (_) { /* falha momentânea de rede: tenta de novo */ }
+      }
+
+      if (job.cancelled) {
+        status.textContent = "Espera cancelada";
+        valEl.textContent = "—";
+      } else if (peso == null) {
+        status.textContent = "Nenhuma pesagem nova chegou";
+        valEl.textContent = "—";
+        alert("Nenhuma pesagem nova chegou. Confira se o SKU na balança é o mesmo e se o peso é diferente do anterior.");
+      } else {
+        const txt = String(peso).replace(".", ",");
+        $("medPeso").value = txt;
+        valEl.textContent = txt + " kg";
+        scale.classList.add("done");
+        status.textContent = "Peso recebido";
+      }
+    } catch (e) {
+      status.textContent = "Balança indisponível";
+      valEl.textContent = "—";
+      alert(e.message);
+    } finally {
       scale.classList.remove("scanning");
-      scale.classList.add("done");
-      status.textContent = "Peso recebido";
-      btnBalanca.disabled = false;
-    }, 1500);
+      scaleJob = null;
+      btnBalanca.innerHTML = labelBalanca;
+    }
   });
 
   // --- Salvar + comparar ---

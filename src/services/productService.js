@@ -132,26 +132,58 @@ function posOrNull(v) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+const CAMPOS_MEDIDAS = ["largura", "altura", "comprimento", "pesoReal"];
+
 // Aplica as medidas (L/A/C/peso) a TODOS os anúncios de um SKU e devolve a
 // comparação frete cobrado × real do anúncio representativo.
-export async function setDimsForSku(userId, sku, dims) {
-  const data = {
-    largura: posOrNull(dims.largura),
-    altura: posOrNull(dims.altura),
-    comprimento: posOrNull(dims.comprimento),
-    pesoReal: posOrNull(dims.pesoReal),
-  };
-  const r = await prisma.item.updateMany({ where: { userId, sku }, data });
+// Atualiza só os campos ENVIADOS: `undefined` mantém o valor atual (assim a balança pode mandar
+// apenas o peso sem apagar largura/altura/comprimento). Um campo enviado vazio ou inválido
+// continua limpando o valor, como antes, então a página web (que envia os quatro) não muda.
+export async function setDimsForSku(userId, sku, dims = {}) {
+  const data = {};
+  for (const campo of CAMPOS_MEDIDAS) {
+    if (dims[campo] !== undefined) data[campo] = posOrNull(dims[campo]);
+  }
+  const afetados = Object.keys(data).length
+    ? (await prisma.item.updateMany({ where: { userId, sku }, data })).count
+    : await prisma.item.count({ where: { userId, sku } });
 
   // Recalcula a divergência do representativo após salvar.
   const itens = await prisma.item.findMany({
     where: { userId, sku },
     select: { precoDe: true, precoPor: true, frete: true, largura: true, altura: true, comprimento: true, pesoReal: true },
   });
+
+  // Medidas efetivas do SKU (primeiro valor não nulo), como na lista de produtos.
+  const merged = {};
+  for (const campo of CAMPOS_MEDIDAS) {
+    merged[campo] = itens.find((it) => it[campo] != null)?.[campo] ?? null;
+  }
+
   const comFrete = itens.filter((it) => it.frete != null);
   const rep = (comFrete.length ? comFrete : itens).slice().sort((a, b) => basePreco(b) - basePreco(a))[0];
-  const div = rep ? avaliaDivergencia(rep) : null;
-  const tam = classificarTamanhoFull(data.largura, data.altura, data.comprimento, data.pesoReal);
+  const div = rep ? avaliaDivergencia({ ...rep, ...merged }) : null;
+  const tam = classificarTamanhoFull(merged.largura, merged.altura, merged.comprimento, merged.pesoReal);
 
-  return { ...data, afetados: r.count, comparacao: div, tamanho: tam ? tam.tamanho : null };
+  return { ...merged, afetados, comparacao: div, tamanho: tam ? tam.tamanho : null };
+}
+
+// Medidas atuais de um SKU (primeiro valor não nulo entre os anúncios dele).
+// Usada pela balança: a página /medir (e o app) consultam o peso que o ESP32 gravou.
+// Devolve null se nenhum anúncio da conta tem esse SKU.
+export async function getSkuMedidas(userId, sku) {
+  const itens = await prisma.item.findMany({
+    where: { userId, sku },
+    select: { largura: true, altura: true, comprimento: true, pesoReal: true },
+  });
+  if (itens.length === 0) return null;
+  const pick = (campo) => itens.find((it) => it[campo] != null)?.[campo] ?? null;
+  return {
+    sku,
+    afetados: itens.length,
+    largura: pick("largura"),
+    altura: pick("altura"),
+    comprimento: pick("comprimento"),
+    pesoReal: pick("pesoReal"),
+  };
 }
