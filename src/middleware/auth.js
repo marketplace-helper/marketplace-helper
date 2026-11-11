@@ -11,6 +11,10 @@ export async function requireAuth(req, res, next) {
     req.session = null;
     return res.redirect("/login");
   }
+  if (!user.emailVerifiedAt) {
+    req.session = null;
+    return res.redirect("/login?error=" + encodeURIComponent("Confirme seu e-mail antes de entrar."));
+  }
   req.user = user;
   res.locals.user = user;
 

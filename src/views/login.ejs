@@ -15,6 +15,14 @@
         <% if (error) { %>
           <div class="alert alert-danger py-2"><i class="bi bi-x-circle"></i> <%= error %></div>
         <% } %>
+        <% if (typeof unverifiedEmail !== 'undefined' && unverifiedEmail) { %>
+          <form method="post" action="/confirmar-email/reenviar" class="mb-3">
+            <input type="hidden" name="email" value="<%= unverifiedEmail %>" />
+            <button type="submit" class="btn btn-outline-primary btn-sm w-100">
+              <i class="bi bi-envelope"></i> Reenviar link de confirmação
+            </button>
+          </form>
+        <% } %>
 
         <form method="post" action="/login">
           <div class="mb-3">

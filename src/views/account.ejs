@@ -77,6 +77,16 @@
         <div class="col-12 col-md-6">
           <label class="form-label">E-mail</label>
           <input type="email" name="email" class="form-control" value="<%= user.email %>" required />
+          <% if (user.pendingEmail) { %>
+            <div class="form-text text-warning-emphasis">
+              <i class="bi bi-hourglass-split"></i>
+              Aguardando confirmação de <strong><%= user.pendingEmail %></strong>.
+              Clique no link enviado para esse endereço.
+              <button type="submit" form="cancel-email-change" class="btn btn-link btn-sm p-0 align-baseline">Cancelar troca</button>
+            </div>
+          <% } else { %>
+            <div class="form-text">Ao trocar, enviamos um link de confirmação para o novo endereço.</div>
+          <% } %>
         </div>
         <div class="col-12 col-md-6">
           <label class="form-label">WhatsApp</label>
@@ -86,6 +96,7 @@
           <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Salvar dados</button>
         </div>
       </form>
+      <form id="cancel-email-change" action="/conta/email/cancelar" method="post" class="d-none"></form>
     </div>
   </div>
 

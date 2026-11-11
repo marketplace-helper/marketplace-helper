@@ -11,6 +11,13 @@ import {
   updateAccountPassword,
   showForgot,
   submitForgot,
+  showResetPassword,
+  submitResetPassword,
+  showCheckEmail,
+  resendVerification,
+  confirmEmail,
+  cancelAccountEmailChange,
+  confirmAccountEmailChange,
 } from "../controllers/accountController.js";
 import { showItems } from "../controllers/itemsController.js";
 import { showDashboard } from "../controllers/dashboardController.js";
@@ -42,6 +49,12 @@ router.get("/register", showRegister);
 router.post("/register", register);
 router.get("/recuperar-senha", showForgot);
 router.post("/recuperar-senha", submitForgot);
+router.get("/redefinir-senha", showResetPassword);
+router.post("/redefinir-senha", submitResetPassword);
+router.get("/verifique-email", showCheckEmail);
+router.post("/confirmar-email/reenviar", resendVerification);
+router.get("/confirmar-email", confirmEmail);
+router.get("/confirmar-novo-email", confirmAccountEmailChange);
 router.get("/logout", logout);
 router.post("/logout", logout);
 
@@ -60,6 +73,7 @@ router.get("/auth", showAuthPage);
 router.get("/callback", oauthCallback);
 router.get("/conta", showAccount);
 router.post("/conta/perfil", updateAccountProfile);
+router.post("/conta/email/cancelar", cancelAccountEmailChange);
 router.post("/conta/senha", updateAccountPassword);
 
 router.post("/auth/credentials", saveMlCredentials);

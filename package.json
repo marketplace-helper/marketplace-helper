@@ -25,6 +25,7 @@
     "jsonwebtoken": "^9.0.3",
     "node-cron": "^4.6.0",
     "prisma": "^6.2.1",
+    "resend": "^6.38.0",
     "swagger-ui-express": "^5.0.1"
   },
   "engines": {
