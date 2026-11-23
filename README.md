@@ -165,7 +165,7 @@ dashboard ML/
 | Arquivo | Responsabilidade |
 |---|---|
 | `accountService.js` | Criação de usuário, verificação e troca de senha, validação de senha |
-| `mlAuth.js` | Credenciais do app ML, fluxo OAuth, *tokens*, criptografia desses dados |
+| `mlAuth.js` | Token válido por usuário (sobre `MlConnection`), com retry único em 401 |
 | `mlApi.js` | Chamadas à API do Mercado Livre (itens, preços, frete, comissão, visitas, categoria) |
 | `syncService.js` | Orquestração da sincronização e *upsert* dos anúncios; estado de progresso |
 | `itemService.js` | Listagem paginada/ordenada dos anúncios e **filtros rápidos** dos KPIs (`?filter=`) |
@@ -184,7 +184,7 @@ dashboard ML/
 Definido em `prisma/schema.prisma`. Seis entidades, todas (exceto `User`) escopadas a um usuário.
 
 ```
-User 1───1 MlAccount          (credenciais do app ML + tokens OAuth, cifrados)
+User 1───1 MlConnection         (MlConnection: tokens OAuth cifrados e status da conexão)
  │   1───1 Settings           (CEP de frete, data da última sincronização)
  │   1───1 BusinessRule       (alíquotas de ICMS, IPI, DIFAL, custo operacional)
  │   1───N Item               (anúncios do vendedor)
@@ -195,7 +195,7 @@ User 1───1 MlAccount          (credenciais do app ML + tokens OAuth, cifra
 | Entidade | Campos principais | Observações |
 |---|---|---|
 | **User** | `email` (único), `storeName`, `whatsapp`, `passwordHash` | Senha com hash bcrypt |
-| **MlAccount** | `appId`, `appSecret`, `redirectUri`, `accessToken`, `refreshToken`, `mlUserId` | `appSecret` e *tokens* **cifrados** (AES-256-GCM) |
+| **MlConnection** | `mlUserId`, `accessToken`, `refreshToken`, `expiresAt`, `status`, `lastRefreshAt`, `lastError` | *Tokens* **cifrados** (AES-256-GCM); `status`: `active` / `reconnect_required` / `disconnected` |
 | **Settings** | `zipCode`, `lastSyncAt` | CEP usado no cálculo de frete |
 | **BusinessRule** | `icms`, `ipi`, `difal`, `custoOperacional` | Percentuais (%) |
 | **Item** | `mlb`, `sku`, `titulo`, `thumbnail`, `permalink`, `custoProduto`, `largura`, `altura`, `comprimento`, `pesoReal`, `precoDe`, `precoPor`, `frete`, `comissao`, `comissaoPct`, `visitas`, `vendas`, `estoque`, `status`, `full`, `catalogo`, categorias | Único por `(userId, mlb)`. Medidas (L/A/C/peso) são aplicadas por SKU |
@@ -213,10 +213,23 @@ Três níveis de autenticação coexistem:
    guardando apenas o `userId`. O *middleware* `requireAuth` protege todas as rotas internas,
    carregando `req.user` e disponibilizando dados globais às *views* (nome da loja, última sync).
 
-2. **Autorização junto ao Mercado Livre (OAuth 2.0).** Cada usuário cadastra as credenciais do seu
-   **aplicativo** no Mercado Livre (App ID, Secret, Redirect URI) na tela *Autorização*, autoriza o
-   acesso e cola o `code` de retorno. A aplicação troca o `code` por `access_token` e
-   `refresh_token`, renovando-os automaticamente quando expiram.
+2. **Autorização junto ao Mercado Livre (OAuth 2.0 + PKCE).** A plataforma tem **um único app** no
+   Mercado Livre (`ML_APP_ID`, `ML_APP_SECRET`); o usuário não cadastra credenciais. Ele clica em
+   **Conectar** (`GET /ml/conectar`), autoriza no Mercado Livre e volta ao sistema já conectado.
+   O fluxo usa **PKCE** e um `state` de uso único. Os *tokens* ficam em `MlConnection`, cifrados,
+   com `status` **`active`**, **`reconnect_required`** ou **`disconnected`**. O *access token* vale
+   6 h e o *refresh token* é de **uso único** (cada renovação devolve um novo, com rotação e lock por
+   usuário). Um *cron* a cada 10 min renova proativamente os *tokens* que expiram em menos de
+   30 min; se a renovação falhar de forma definitiva, o status vira `reconnect_required` e a
+   interface exibe um banner de reconexão. Usuários anteriores à mudança foram migrados como
+   `reconnect_required` e só precisam clicar em Conectar. Webhooks do ML (`items`, `orders_v2`)
+   disparam sincronização seletiva.
+
+   **Contrato do app mobile:**
+   1. `POST /api/ml/oauth/start` (Bearer) devolve `{ url }`.
+   2. Abrir a `url` com `openAuthSessionAsync(url, "marketplacehelper://ml/oauth")` (`expo-web-browser`).
+   3. O retorno traz `?status=ok|erro&mensagem=...` no deep link.
+   4. Confirmar com `GET /api/ml/connection` (status da conexão). Desconectar: `DELETE /api/ml/connection`.
 
 3. **Token JWT da API (`/api`).** Para o front-end React, o aplicativo React Native e o dispositivo
    IoT, a API JSON autentica por **token JWT** (`Authorization: Bearer <token>`), emitido no login e
@@ -339,7 +352,7 @@ O **frete cobrado** é o `Item.frete` vindo da API. Δ positivo = real acima do 
   dinâmico** usando os valores do próprio usuário.
 - **Simulador** (`/simulador`): a partir de um título e preço, prediz a categoria, calcula a
   comissão no **Clássico** e no **Premium**, estima o frete e compara o retorno lado a lado.
-- **Autorização** (`/auth`): cadastro das credenciais do app ML e fluxo de autorização.
+- **Autorização** (`/auth`): botão Conectar/Desconectar a conta do Mercado Livre e status da conexão.
 - **Minha Conta** (`/conta`): edição de nome da loja, e-mail e WhatsApp; troca de senha; e um
   cartão com os **dados e a foto** da conta do Mercado Livre.
 
@@ -365,7 +378,7 @@ hospedagem precisa manter o processo **sempre ligado** (ver seção 16).
 ## 11. Segurança
 
 - **Senhas:** *hash* **bcrypt** (irreversível, com *salt*). Nunca armazenadas ou exibidas em claro.
-- **Dados sensíveis do Mercado Livre:** `appSecret`, `accessToken` e `refreshToken` são
+- **Dados sensíveis do Mercado Livre:** `accessToken` e `refreshToken` são
   **cifrados em repouso** com **AES-256-GCM** (`crypto.js`), no formato `enc:v1:<iv>:<tag>:<dados>`.
   A chave deriva de `ENCRYPTION_KEY` (variável de ambiente). Mesmo que o arquivo `dev.db` vaze,
   esses segredos permanecem ilegíveis sem a chave. O *secret* nunca é devolvido à interface.
@@ -412,8 +425,7 @@ hospedada em qualquer serviço (Vercel, Netlify, GitHub Pages, etc.) sem o Node.
 | GET | `/frete` | Calculadora de frete (cubagem + tabela do ML) |
 | GET/POST | `/regras` | Regras de negócio (impostos/custos) |
 | GET/POST | `/simulador` | Simulador de anúncio |
-| GET | `/auth` · POST `/auth/credentials` · POST `/auth/code` | Autorização Mercado Livre |
-| GET | `/callback` | Callback OAuth (fallback) |
+| GET | `/auth` · GET `/ml/conectar` · POST `/ml/desconectar` | Autorização Mercado Livre (1 clique) |
 | POST | `/sync` · POST `/sync/selection` · GET `/sync/status` | Sincronização e progresso |
 | POST | `/settings/zip` | CEP de cálculo de frete |
 | GET | `/export` | Exporta Excel |
@@ -439,6 +451,10 @@ documentação interativa (**Swagger UI**) fica em **`/api/docs`** e a especific
 | GET | `/api/frete/estimar` | Calculadora de frete por cubagem |
 | GET/PUT | `/api/config` · `/api/config/cep` | CEP e última sincronização |
 | POST/GET | `/api/sync` · `/api/sync/status` | Sincronização e progresso |
+| POST | `/api/ml/oauth/start` | (Bearer) Inicia o OAuth e devolve `{ url }` para o app mobile |
+| GET · DELETE | `/api/ml/connection` | (Bearer) Status da conexão ML / desconectar |
+| GET | `/api/ml/oauth/callback` | (pública) Retorno do Mercado Livre; redireciona ao web ou ao deep link |
+| POST | `/api/ml/webhooks` | (pública) Notificações do ML (`items`, `orders_v2`) |
 | POST | `/api/iot/medidas` | Recebe a leitura do dispositivo (peso + dimensões) e salva no SKU |
 
 As regras de negócio são as mesmas da web: a API apenas serializa em JSON os resultados dos *services*.
@@ -457,10 +473,15 @@ Arquivo `.env` (modelo em `.env.example`):
 | `ENCRYPTION_KEY` | Chave (64 hex) para cifrar segredos do ML no banco (estável) — **obrigatório em produção** |
 | `DATABASE_URL` | Caminho do SQLite — local: `file:./dev.db`; produção: `file:/data/prod.db` (volume) |
 | `NODE_ENV` | `production` no servidor: ativa *cookie* `Secure`, `trust proxy` e a checagem de segredos |
+| `ML_APP_ID` | ID do app único da plataforma no Mercado Livre |
+| `ML_APP_SECRET` | Secret do app ML |
+| `ML_REDIRECT_URI` | Redirect URI do OAuth (padrão `${APP_URL}/api/ml/oauth/callback`; produção: `https://app.marketplacehelper.com.br/api/ml/oauth/callback`) |
+| `MOBILE_OAUTH_REDIRECT` | Deep link de retorno do app mobile (padrão `marketplacehelper://ml/oauth`) |
 | `TZ` | Fuso do agendamento (padrão **America/Sao_Paulo**) |
 
-As credenciais do Mercado Livre **não** ficam no `.env`: são cadastradas por usuário na tela
-*Autorização*.
+**Painel do app no Mercado Livre** (developers.mercadolivre.com.br): cadastrar a mesma Redirect URI
+de `ML_REDIRECT_URI`, **habilitar PKCE** e configurar as notificações com URL
+`https://app.marketplacehelper.com.br/api/ml/webhooks` e tópicos **`items`** e **`orders_v2`**.
 
 ---
 
