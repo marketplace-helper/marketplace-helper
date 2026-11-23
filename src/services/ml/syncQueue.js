@@ -1,5 +1,7 @@
 // Fila de sync seletivo: agrupa os MLBs notificados por usuário e dispara um
 // único runSync `delayMs` depois da primeira notificação do lote.
+const MAX_MLBS_POR_LOTE = 200;
+
 export function createSyncQueue({
   runSync,
   getSyncState,
@@ -33,7 +35,13 @@ export function createSyncQueue({
     let lote = lotes.get(userId);
     const novo = !lote;
     if (novo) { lote = { mlbs: new Set(), timer: null }; lotes.set(userId, lote); }
-    for (const m of mlbs) lote.mlbs.add(m);
+    for (const m of mlbs) {
+      if (lote.mlbs.size >= MAX_MLBS_POR_LOTE && !lote.mlbs.has(m)) {
+        console.warn(`[ML webhook] lote do usuário ${userId} acima de ${MAX_MLBS_POR_LOTE} anúncios; excedente descartado.`);
+        break;
+      }
+      lote.mlbs.add(m);
+    }
     if (novo) agendar(userId);
   }
 

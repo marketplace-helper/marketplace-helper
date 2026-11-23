@@ -60,3 +60,13 @@ test("falha do runSync não derruba o processo", async (t) => {
   t.mock.timers.tick(30_000);
   await Promise.resolve(); await Promise.resolve();
 });
+
+test("lote é limitado a 200 MLBs por usuário; o excedente é descartado com aviso", (t) => {
+  const warn = t.mock.method(console, "warn", () => {});
+  const { queue, calls } = setup(t);
+  queue.enqueue(1, Array.from({ length: 150 }, (_, i) => `MLB${i}`));
+  queue.enqueue(1, Array.from({ length: 150 }, (_, i) => `MLB${1000 + i}`));
+  t.mock.timers.tick(30_000);
+  assert.equal(calls[0].mlbs.length, 200);
+  assert.ok(warn.mock.callCount() >= 1);
+});
