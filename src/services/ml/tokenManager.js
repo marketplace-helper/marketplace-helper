@@ -47,7 +47,13 @@ export function createTokenManager({ store, client, now = () => Date.now() }) {
   async function doRefresh(userId, conn) {
     try {
       const tokens = await client.refresh(conn.refreshToken);
-      await store.saveTokens(userId, { ...tokens, mlUserId: tokens.mlUserId ?? conn.mlUserId });
+      try {
+        await store.saveTokens(userId, { ...tokens, mlUserId: tokens.mlUserId ?? conn.mlUserId });
+      } catch (e) {
+        // O ML já rotacionou o refresh token: o antigo morreu e o novo não foi gravado.
+        console.error(`[ML] refresh OK mas falhou ao salvar o novo refresh token do usuário ${userId} — a conexão vai exigir reconexão`, e);
+        throw e;
+      }
       return tokens.accessToken;
     } catch (e) {
       if (e instanceof MlOAuthError && e.code === "invalid_grant") {
@@ -55,7 +61,8 @@ export function createTokenManager({ store, client, now = () => Date.now() }) {
         throw new ReconnectRequiredError();
       }
       // Falha transitória (rede, 5xx...): mantém o status e só registra o erro.
-      await store.setLastError(userId, e.message);
+      // Se nem o registro do erro for possível, o erro original é o que importa.
+      await store.setLastError(userId, e.message).catch(() => {});
       throw e;
     }
   }

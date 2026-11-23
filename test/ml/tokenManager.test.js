@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createTokenManager, NotConnectedError, ReconnectRequiredError } from "../../src/services/ml/tokenManager.js";
 import { MlOAuthError } from "../../src/services/ml/oauthClient.js";
+import { CryptoConfigError } from "../../src/services/ml/cryptoGuard.js";
 import { createFakeStore, createFakeClient } from "./fakes.js";
 
 const NOW = Date.parse("2026-01-01T12:00:00Z");
@@ -94,4 +95,23 @@ test("desconectado lança NotConnectedError e reconnect_required lança Reconnec
   await r.store.markReconnectRequired(1, "x");
   await assert.rejects(r.tm.getValidToken(1), ReconnectRequiredError);
   assert.equal(r.client.refreshCalls, 0);
+});
+
+test("CryptoConfigError no store.get propaga e não muda o status", async () => {
+  const { tm, store } = setup({ expiresInMs: 0 });
+  const original = store.get;
+  store.get = async () => { throw new CryptoConfigError(); };
+  await assert.rejects(tm.getValidToken(1), CryptoConfigError);
+  store.get = original;
+  assert.equal((await store.get(1)).status, "active");
+});
+
+test("refresh ok mas saveTokens falha: loga erro específico e propaga", async (t) => {
+  const err = t.mock.method(console, "error", () => {});
+  const { tm, store } = setup({ expiresInMs: 0 });
+  store.saveTokens = async () => { throw new Error("disco cheio"); };
+  await assert.rejects(tm.getValidToken(1), /disco cheio/);
+  const msgs = err.mock.calls.map((c) => String(c.arguments[0]));
+  assert.ok(msgs.some((m) => m.includes("refresh OK mas falhou ao salvar") && m.includes("usuário 1")));
+  assert.ok(!msgs.some((m) => m.includes("novo-refresh")));
 });

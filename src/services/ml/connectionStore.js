@@ -1,5 +1,6 @@
 import prisma from "../../config/prisma.js";
-import { encrypt, decrypt } from "../../config/crypto.js";
+import { encrypt } from "../../config/crypto.js";
+import { decifrarTokenOuFalhar } from "./cryptoGuard.js";
 
 // Persistência da conexão com o Mercado Livre (1 por usuário). Tokens são cifrados ao gravar
 // e decifrados ao ler; quem usa este módulo sempre vê os tokens em texto puro.
@@ -10,8 +11,8 @@ export default {
     return {
       userId: c.userId,
       mlUserId: c.mlUserId,
-      accessToken: decrypt(c.accessToken),
-      refreshToken: decrypt(c.refreshToken),
+      accessToken: decifrarTokenOuFalhar(c.accessToken),
+      refreshToken: decifrarTokenOuFalhar(c.refreshToken),
       expiresAt: c.expiresAt,
       status: c.status,
       lastRefreshAt: c.lastRefreshAt,
@@ -48,7 +49,7 @@ export default {
   async disconnect(userId) {
     await prisma.mlConnection.updateMany({
       where: { userId },
-      data: { accessToken: null, refreshToken: null, expiresAt: null, status: "disconnected" },
+      data: { accessToken: null, refreshToken: null, expiresAt: null, status: "disconnected", mlUserId: null },
     });
   },
 
