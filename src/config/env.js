@@ -52,7 +52,7 @@ export const config = {
     appId: process.env.ML_APP_ID || "",
     appSecret: process.env.ML_APP_SECRET || "",
     redirectUri: process.env.ML_REDIRECT_URI || `${appUrl}/api/ml/oauth/callback`,
-    mobileRedirect: process.env.ML_MOBILE_REDIRECT || "marketplacehelper://ml/oauth",
+    mobileRedirect: process.env.MOBILE_OAUTH_REDIRECT || "marketplacehelper://ml/oauth",
   },
   // Envio de e-mails (Resend). Sem domínio verificado, use onboarding@resend.dev
   // (só entrega para o e-mail dono da conta Resend).

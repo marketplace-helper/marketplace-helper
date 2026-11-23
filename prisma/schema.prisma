@@ -52,7 +52,7 @@ model MlConnection {
   accessToken   String?
   refreshToken  String?
   expiresAt     DateTime?
-  // "disconnected" | "connected" | "reconnect_required"
+  // "active" | "reconnect_required" | "disconnected"
   status        String    @default("disconnected")
   lastRefreshAt DateTime?
   lastError     String?
