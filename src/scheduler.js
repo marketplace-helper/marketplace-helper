@@ -1,4 +1,5 @@
 import cron from "node-cron";
+import prisma from "./config/prisma.js";
 import connectionStore from "./services/ml/connectionStore.js";
 import { config } from "./config/env.js";
 import tokenManager from "./services/ml/tokenManager.js";
@@ -14,6 +15,19 @@ async function syncAllUsers() {
     } catch (e) {
       console.error(`[CRON] erro no usuário ${userId}:`, e.message);
     }
+  }
+}
+
+// Remove tentativas de OAuth expiradas ou já usadas há mais de 1 hora.
+async function limparTentativasOAuth() {
+  try {
+    const agora = Date.now();
+    const { count } = await prisma.mlOAuthAttempt.deleteMany({
+      where: { OR: [{ expiresAt: { lt: new Date(agora) } }, { usedAt: { lt: new Date(agora - 60 * 60_000) } }] },
+    });
+    if (count) console.log(`[CRON-ML] ${count} tentativa(s) de OAuth antiga(s) removida(s).`);
+  } catch (e) {
+    console.error("[CRON-ML] falha ao limpar tentativas de OAuth:", e.message);
   }
 }
 
@@ -48,6 +62,7 @@ export function startScheduler() {
     { timezone: config.timezone }
   );
   cron.schedule("*/10 * * * *", () => {
+    limparTentativasOAuth().catch((e) => console.error("[CRON-ML] erro:", e.message));
     refreshExpiringTokens().catch((e) => console.error("[CRON-ML] erro:", e.message));
   });
   console.log(`  Sincronização automática agendada para 00:00 e 12:00 (${config.timezone}).`);
