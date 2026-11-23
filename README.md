@@ -184,7 +184,7 @@ dashboard ML/
 Definido em `prisma/schema.prisma`. Seis entidades, todas (exceto `User`) escopadas a um usuário.
 
 ```
-User 1───1 MlConnection         (MlConnection: tokens OAuth cifrados e status da conexão)
+User 1───1 MlConnection       (tokens OAuth cifrados e status da conexão)
  │   1───1 Settings           (CEP de frete, data da última sincronização)
  │   1───1 BusinessRule       (alíquotas de ICMS, IPI, DIFAL, custo operacional)
  │   1───N Item               (anúncios do vendedor)
@@ -217,9 +217,10 @@ Três níveis de autenticação coexistem:
    Mercado Livre (`ML_APP_ID`, `ML_APP_SECRET`); o usuário não cadastra credenciais. Ele clica em
    **Conectar** (`GET /ml/conectar`), autoriza no Mercado Livre e volta ao sistema já conectado.
    O fluxo usa **PKCE** e um `state` de uso único. Os *tokens* ficam em `MlConnection`, cifrados,
-   com `status` **`active`**, **`reconnect_required`** ou **`disconnected`**. O *access token* vale
-   6 h e o *refresh token* é de **uso único** (cada renovação devolve um novo, com rotação e lock por
-   usuário). Um *cron* a cada 10 min renova proativamente os *tokens* que expiram em menos de
+   com `status` **`active`**, **`reconnect_required`** ou **`disconnected`**. Segundo a documentação do ML
+   (verificar em developers.mercadolivre.com.br/autenticacao-e-autorizacao), o *access token* vale
+   6 h e o *refresh token* é de **uso único**, com rotação a cada renovação (aqui protegida por lock
+   por usuário). Um *cron* a cada 10 min renova proativamente os *tokens* que expiram em menos de
    30 min; se a renovação falhar de forma definitiva, o status vira `reconnect_required` e a
    interface exibe um banner de reconexão. Usuários anteriores à mudança foram migrados como
    `reconnect_required` e só precisam clicar em Conectar. Webhooks do ML (`items`, `orders_v2`)
@@ -491,9 +492,11 @@ de `ML_REDIRECT_URI`, **habilitar PKCE** e configurar as notificações com URL
 
 - **Node.js 18 ou superior** (desenvolvido em Node 24). Baixe em <https://nodejs.org>.
 - **Git** (para clonar) — opcional se você copiar a pasta manualmente.
-- Uma **conta de desenvolvedor no Mercado Livre** com um **aplicativo** criado
-  (<https://developers.mercadolivre.com.br>), do qual você obterá **App ID**, **Secret Key** e
-  cadastrará uma **Redirect URI**.
+- Uma **conta de desenvolvedor no Mercado Livre** com **um único aplicativo** da plataforma criado
+  (<https://developers.mercadolivre.com.br>). O dono da plataforma obtém o **App ID** e a
+  **Secret Key** (`ML_APP_ID`, `ML_APP_SECRET`) e cadastra a **Redirect URI**
+  (`<APP_URL>/api/ml/oauth/callback`), com **PKCE** habilitado. Os usuários finais não precisam de
+  conta de desenvolvedor.
 
 ### 15.1. Obter o código
 
@@ -558,10 +561,10 @@ Acesse **<http://localhost:3333>** (aplicação web) e **<http://localhost:3333/
 ### 15.6. Primeiro uso (dentro do aplicativo)
 
 1. **Crie sua conta** (nome da loja, e-mail, WhatsApp, senha).
-2. Em **Autorização**, informe **App ID**, **Secret Key** e **Redirect URI** do seu app no Mercado
-   Livre e salve.
-3. Clique em **Autorizar no Mercado Livre**, faça login, autorize e **cole** a URL (ou o `code`)
-   de retorno.
+2. Em **Autorização**, clique em **Conectar com Mercado Livre**, faça login e autorize. Você volta
+   ao sistema já conectado, sem copiar código nem informar credenciais.
+3. (Configuração do dono da plataforma, uma única vez: `ML_APP_ID`, `ML_APP_SECRET` e
+   `ML_REDIRECT_URI` no `.env`.)
 4. Em **Anúncios**, clique em **Atualizar tudo** para importar o catálogo.
 5. Em **Produtos**, preencha os **custos** e as **medidas** (L/A/C/peso) por SKU — ou use
    **Medição** para capturar as medidas; em **Regras**, informe as **alíquotas**.
@@ -632,13 +635,15 @@ Em **Settings → Networking → Generate Domain**. O Railway fornece um endere�
 
 ### 16.5. Ajustar o Mercado Livre
 
-1. No painel de desenvolvedor do ML (<https://developers.mercadolivre.com.br>), edite o aplicativo e
-   cadastre a **Redirect URI** apontando para a rota de *callback* do app:
-   `https://<nome>.up.railway.app/callback`.
-2. Na aplicação publicada, crie sua conta e, em **Autorização**, informe a **mesma** Redirect URI —
-   ela precisa ser **idêntica** nos dois lugares.
-3. Clique em **Autorizar no Mercado Livre**. Com o domínio público, o ML devolve o navegador
-   direto para `/callback` e o app troca o código pelos tokens sozinho — não é preciso colar a URL.
+1. No painel de desenvolvedor do ML (<https://developers.mercadolivre.com.br>), edite o aplicativo
+   único da plataforma: cadastre a **Redirect URI**
+   `https://<nome>.up.railway.app/api/ml/oauth/callback`, habilite **PKCE** e configure as
+   notificações (`https://<nome>.up.railway.app/api/ml/webhooks`, tópicos `items` e `orders_v2`).
+2. No serviço do Railway, defina `ML_APP_ID`, `ML_APP_SECRET` e `ML_REDIRECT_URI` com **o mesmo
+   valor** da Redirect URI do painel (precisa ser **idêntica** nos dois lugares), além de
+   `MOBILE_OAUTH_REDIRECT` se usar o app mobile.
+3. Na aplicação publicada, crie sua conta e clique em **Conectar com Mercado Livre**: o ML devolve o
+   navegador para `/api/ml/oauth/callback` e o app troca o código pelos tokens sozinho.
 4. Rode um **Atualizar tudo** em **Anúncios**.
 
 ### 16.6. Verificação
@@ -698,7 +703,10 @@ publicado (ex.: `https://<nome>.up.railway.app`) — é ele que monta os botões
 - **A tela mostra código antigo após uma atualização:** o processo em memória precisa reiniciar.
   Feche a janela do servidor e rode o `INICIAR.BAT` novamente.
 - **Erro de autorização no Mercado Livre:** confira se a **Redirect URI** no painel do ML é
-  **idêntica** à cadastrada no app.
+  **idêntica** a `ML_REDIRECT_URI` (padrão `<APP_URL>/api/ml/oauth/callback`) e se o PKCE está
+  habilitado.
+- **Banner "reconectar" na interface:** a conexão está em `reconnect_required` (refresh recusado
+  ou revogado); clique em **Conectar com Mercado Livre** novamente.
 - **Campos do Prisma "unknown" / coluna inexistente:** rode `npx prisma migrate deploy` e
   `npx prisma generate` (o `INICIAR.BAT` faz isso a cada início).
 - **Login não "segura" localmente com `NODE_ENV=production`:** em produção o *cookie* é `Secure`
