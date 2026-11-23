@@ -1,41 +1,55 @@
-import { getValidToken } from "./mlAuth.js";
+import tokenManager from "./ml/tokenManager.js";
 
 const API = "https://api.mercadolibre.com";
 
 // Cache de categorias (nao e por usuario - categorias sao globais no ML)
 const categoryCache = new Map();
 
-async function authHeaders(userId) {
-  const token = await getValidToken(userId);
-  return { Authorization: `Bearer ${token}` };
-}
+const defaultSleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // GET com retry. Nao repete em 4xx (definitivo); repete em 429/5xx/rede.
-async function apiGet(userId, url, { retries = 3, delay = 800 } = {}) {
-  const headers = await authHeaders(userId);
-  for (let attempt = 0; attempt < retries; attempt++) {
-    try {
-      const res = await fetch(url, { headers });
-      if (res.status === 429) {
-        await sleep(5000);
-        continue;
-      }
-      if (res.status >= 400 && res.status < 500) {
-        return null;
-      }
-      if (!res.ok) {
+// Em 401 renova o token (uma vez) e repete; segundo 401 devolve null.
+// NotConnectedError/ReconnectRequiredError do tokenManager propagam.
+export function createApiGet({ fetch = globalThis.fetch, tokenManager, sleep = defaultSleep }) {
+  return async function apiGet(userId, url, { retries = 3, delay = 800 } = {}) {
+    let token = await tokenManager.getValidToken(userId);
+    let refreshed = false;
+    for (let attempt = 0; attempt < retries; attempt++) {
+      let res;
+      try {
+        res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      } catch (e) {
         await sleep(delay);
         continue;
       }
-      return await res.json();
-    } catch (e) {
-      await sleep(delay);
+      if (res.status === 401 && !refreshed) {
+        refreshed = true;
+        // fora do try: erros de reconexao devem propagar
+        token = await tokenManager.forceRefresh(userId);
+        attempt--; // a repeticao apos o refresh nao consome tentativa
+        continue;
+      }
+      try {
+        if (res.status === 429) {
+          await sleep(5000);
+          continue;
+        }
+        if (res.status >= 400 && res.status < 500) return null;
+        if (!res.ok) {
+          await sleep(delay);
+          continue;
+        }
+        return await res.json();
+      } catch (e) {
+        await sleep(delay);
+      }
     }
-  }
-  return null;
+    return null;
+  };
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const apiGet = createApiGet({ tokenManager });
+export { apiGet };
 
 // ML user_id do vendedor autenticado
 export async function getMlUserId(userId) {
