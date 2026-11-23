@@ -63,3 +63,34 @@ export function createFakeClient({ refreshError = null } = {}) {
 }
 
 export { MlOAuthError };
+
+// Tentativas de OAuth em memória, com a mesma semântica do adapter Prisma:
+// consume só devolve a tentativa se ainda não foi usada nem expirou.
+export function createFakeAttempts({ now = () => Date.now() } = {}) {
+  const rows = new Map();
+  return {
+    rows,
+    async create({ nonce, userId, codeVerifier, client, expiresAt }) {
+      rows.set(nonce, { nonce, userId, codeVerifier, client, expiresAt, usedAt: null });
+    },
+    async consume(nonce) {
+      const r = rows.get(nonce);
+      if (!r || r.usedAt || r.expiresAt.getTime() <= now()) return null;
+      r.usedAt = new Date(now());
+      return { ...r };
+    },
+  };
+}
+
+// Cliente OAuth falso para a troca do code.
+export function createFakeExchangeClient({ error = null } = {}) {
+  const client = {
+    exchangeCalls: [],
+    async exchangeCode(args) {
+      client.exchangeCalls.push(args);
+      if (error) throw error;
+      return { accessToken: "acc", refreshToken: "ref", expiresIn: 21600, mlUserId: "999" };
+    },
+  };
+  return client;
+}
