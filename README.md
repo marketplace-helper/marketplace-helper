@@ -232,6 +232,9 @@ Três níveis de autenticação coexistem:
    3. O retorno traz `?status=ok|erro&mensagem=...` no deep link.
    4. Confirmar com `GET /api/ml/connection` (status da conexão). Desconectar: `DELETE /api/ml/connection`.
 
+   **Risco residual (mobile):** no fluxo web o callback confere que a sessão é do mesmo usuário que
+   iniciou a autorização; o fluxo mobile não confere a sessão; uma página de confirmação está prevista.
+
 3. **Token JWT da API (`/api`).** Para o front-end React, o aplicativo React Native e o dispositivo
    IoT, a API JSON autentica por **token JWT** (`Authorization: Bearer <token>`), emitido no login e
    independente da sessão web. O *middleware* `requireApiAuth` responde **401 em JSON**, sem redirecionar.

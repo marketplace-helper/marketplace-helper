@@ -69,11 +69,14 @@ export function createOAuthFlow({
   }
 
   // Nunca lança: qualquer falha vira { ok: false, message } para a tela de retorno.
-  async function handleCallback({ code, state, error } = {}) {
+  async function handleCallback({ code, state, error, sessionUserId } = {}) {
     const s = verifyState(state);
     const clientType = s?.client === "mobile" ? "mobile" : "web";
     const fail = (message) => ({ ok: false, client: clientType, message });
     if (!s) return fail(MSG.expired);
+    // Web: quem conclui precisa ser o usuário logado que iniciou o fluxo (evita ligar a conta
+    // ML de uma vítima ao usuário do atacante). Mobile não tem sessão; veja o README.
+    if (clientType === "web" && (sessionUserId == null || sessionUserId !== s.userId)) return fail(MSG.expired);
 
     try {
       // Consome primeiro: o state vale uma única vez, inclusive quando o usuário cancela.

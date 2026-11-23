@@ -52,8 +52,8 @@ test("callback feliz troca o code com o verifier e salva os tokens", async () =>
 test("o mesmo state usado duas vezes só troca o code uma vez", async () => {
   const { flow, client } = setup();
   const state = stateOf(await flow.startAuthorization(7, "web"));
-  assert.equal((await flow.handleCallback({ code: "C", state })).ok, true);
-  const r = await flow.handleCallback({ code: "C", state });
+  assert.equal((await flow.handleCallback({ code: "C", state, sessionUserId: 7 })).ok, true);
+  const r = await flow.handleCallback({ code: "C", state, sessionUserId: 7 });
   assert.deepEqual(r, { ok: false, client: "web", message: EXPIRED });
   assert.equal(client.exchangeCalls.length, 1);
 });
@@ -90,7 +90,7 @@ test("mlUserId já ligado a outro usuário (P2002) vira mensagem específica", a
   };
   const { flow } = setup({ store });
   const state = stateOf(await flow.startAuthorization(7, "web"));
-  const r = await flow.handleCallback({ code: "C", state });
+  const r = await flow.handleCallback({ code: "C", state, sessionUserId: 7 });
   assert.deepEqual(r, { ok: false, client: "web", message: "Esta conta do Mercado Livre já está conectada a outro usuário." });
 });
 
@@ -100,4 +100,45 @@ test("falha na troca do code vira mensagem genérica e não lança", async (t) =
   const state = stateOf(await flow.startAuthorization(7, "mobile"));
   const r = await flow.handleCallback({ code: "C", state });
   assert.deepEqual(r, { ok: false, client: "mobile", message: "Não foi possível conectar ao Mercado Livre. Tente de novo." });
+});
+
+test("state web com sessão de outro usuário falha sem trocar o code", async () => {
+  const { flow, client } = setup();
+  const state = stateOf(await flow.startAuthorization(7, "web"));
+  const r = await flow.handleCallback({ code: "C", state, sessionUserId: 99 });
+  assert.deepEqual(r, { ok: false, client: "web", message: EXPIRED });
+  assert.equal(client.exchangeCalls.length, 0);
+});
+
+test("state web sem sessão falha sem trocar o code", async () => {
+  const { flow, client } = setup();
+  const state = stateOf(await flow.startAuthorization(7, "web"));
+  const r = await flow.handleCallback({ code: "C", state });
+  assert.equal(r.ok, false);
+  assert.equal(client.exchangeCalls.length, 0);
+});
+
+test("state web com a sessão do mesmo usuário conclui", async () => {
+  const { flow, client } = setup();
+  const state = stateOf(await flow.startAuthorization(7, "web"));
+  const r = await flow.handleCallback({ code: "C", state, sessionUserId: 7 });
+  assert.equal(r.ok, true);
+  assert.equal(client.exchangeCalls.length, 1);
+});
+
+test("state mobile não depende de sessão", async () => {
+  const { flow } = setup();
+  const state = stateOf(await flow.startAuthorization(7, "mobile"));
+  assert.equal((await flow.handleCallback({ code: "C", state })).ok, true);
+});
+
+test("tentativa criada para o usuário 7 com state assinado para o 8 falha", async () => {
+  const { flow, attempts, client } = setup();
+  const state7 = stateOf(await flow.startAuthorization(7, "mobile"));
+  const nonce = verifyState(state7).nonce;
+  const { signState } = await import("../../src/services/ml/oauthState.js");
+  const forjado = signState({ userId: 8, nonce, client: "mobile" });
+  const r = await flow.handleCallback({ code: "C", state: forjado });
+  assert.deepEqual(r, { ok: false, client: "mobile", message: EXPIRED });
+  assert.equal(client.exchangeCalls.length, 0);
 });

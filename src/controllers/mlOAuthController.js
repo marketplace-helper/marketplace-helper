@@ -25,7 +25,7 @@ export function createMlOAuthController({
   // Pública: o Mercado Livre devolve o usuário aqui (web e mobile).
   async function callback(req, res) {
     const { code, state, error } = req.query;
-    const r = await oauthFlow.handleCallback({ code, state, error });
+    const r = await oauthFlow.handleCallback({ code, state, error, sessionUserId: req.session?.userId });
     if (r.client === "mobile") {
       const qs = `status=${r.ok ? "ok" : "erro"}&mensagem=${encodeURIComponent(r.message)}`;
       return res.redirect(`${mobileRedirect}?${qs}`);

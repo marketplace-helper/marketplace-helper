@@ -104,3 +104,11 @@ test("webhook responde 200 antes de processar e não propaga erro", async (t) =>
   await new Promise((r) => setImmediate(r));
   assert.deepEqual(ordem, ["status200", "handle"]);
 });
+
+test("callback repassa a sessão do usuário ao fluxo", async () => {
+  const { ctrl, calls } = setup({ ok: true, client: "web", message: "ok" });
+  await ctrl.callback({ query: { code: "c", state: "s" }, session: { userId: 5 } }, fakeRes());
+  assert.equal(calls.callback[0].sessionUserId, 5);
+  await ctrl.callback({ query: { code: "c", state: "s" } }, fakeRes());
+  assert.equal(calls.callback[1].sessionUserId, undefined);
+});
