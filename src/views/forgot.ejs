@@ -15,11 +15,9 @@
             Se houver uma conta com <strong><%= email %></strong>, enviaremos instruções de
             recuperação por e-mail.
           </div>
-          <div class="alert alert-warning py-2 small mb-3">
-            <i class="bi bi-cone-striped"></i>
-            <strong>Em construção:</strong> o envio de e-mail ainda não está configurado.
-            Por enquanto, peça ao administrador para redefinir sua senha.
-          </div>
+          <p class="text-muted small">
+            O link vale por 1 hora. Não chegou? Confira a pasta de spam ou tente de novo em alguns minutos.
+          </p>
           <a href="/login" class="btn btn-primary w-100"><i class="bi bi-arrow-left"></i> Voltar ao login</a>
         <% } else { %>
           <p class="text-muted">

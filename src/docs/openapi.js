@@ -64,15 +64,16 @@ export const openapiSpec = {
         responses: {
           200: json({ token: "eyJhbGciOi...", user: { id: 1, email: "vendedor@loja.com", storeName: "Minha Loja", whatsapp: null } }),
           401: { description: "Credenciais inválidas", ...json({ error: "E-mail ou senha inválidos." }) },
+          403: { description: "E-mail ainda não confirmado", ...json({ error: "E-mail não confirmado. Use o link enviado no cadastro." }) },
         },
       },
     },
     "/register": {
       post: {
-        tags: ["Autenticação"], summary: "Cria uma conta e retorna um token JWT", security: [],
+        tags: ["Autenticação"], summary: "Cria uma conta e envia o link de confirmação por e-mail (login liberado após confirmar)", security: [],
         requestBody: { required: true, content: { "application/json": { example: { email: "novo@loja.com", storeName: "Loja Nova", whatsapp: "11999990000", password: "SenhaForte1" } } } },
         responses: {
-          201: json({ token: "eyJhbGciOi...", user: { id: 2, email: "novo@loja.com", storeName: "Loja Nova", whatsapp: "11999990000" } }),
+          201: json({ message: "Conta criada. Enviamos um link de confirmação para o e-mail informado.", user: { id: 2, email: "novo@loja.com", storeName: "Loja Nova", whatsapp: "11999990000" } }),
           400: { description: "Dados inválidos", ...json({ error: "A senha deve ter no mínimo 8 caracteres." }) },
           409: { description: "E-mail já cadastrado", ...json({ error: "E-mail já cadastrado." }) },
         },

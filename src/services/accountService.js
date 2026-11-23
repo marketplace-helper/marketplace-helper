@@ -36,12 +36,12 @@ export async function verifyPassword(user, password) {
   return bcrypt.compare(password, user.passwordHash);
 }
 
-export async function updateProfile(userId, { storeName, email, whatsapp }) {
+// O e-mail não muda aqui: a troca passa por confirmação (emailAuthService.requestEmailChange).
+export async function updateProfile(userId, { storeName, whatsapp }) {
   return prisma.user.update({
     where: { id: userId },
     data: {
       storeName: storeName.trim(),
-      email: email.toLowerCase().trim(),
       whatsapp: (whatsapp || "").trim() || null,
     },
   });

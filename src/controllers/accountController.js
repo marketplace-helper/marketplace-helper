@@ -6,6 +6,17 @@ import {
   updateProfile,
   changePassword,
 } from "../services/accountService.js";
+import {
+  sendVerificationEmail,
+  verifyEmail,
+  sendPasswordResetEmail,
+  isResetTokenValid,
+  resetPassword,
+  requestEmailChange,
+  cancelEmailChange,
+  confirmEmailChange,
+  EmailChangeError,
+} from "../services/emailAuthService.js";
 import { getAuthStatus } from "../services/mlAuth.js";
 import { getMlProfile } from "../services/mlApi.js";
 
@@ -15,6 +26,7 @@ export function showLogin(req, res) {
     title: "Entrar",
     error: req.query.error || null,
     message: req.query.message || null,
+    unverifiedEmail: null,
   });
 }
 
@@ -23,6 +35,15 @@ export async function login(req, res) {
   const user = await findByEmail(email);
   if (!user || !(await verifyPassword(user, password))) {
     return res.redirect("/login?error=" + encodeURIComponent("E-mail ou senha inválidos."));
+  }
+  // Senha correta, mas e-mail ainda não confirmado: não loga e oferece reenvio.
+  if (!user.emailVerifiedAt) {
+    return res.status(403).render("login", {
+      title: "Entrar",
+      error: "Confirme seu e-mail antes de entrar. Procure o link na sua caixa de entrada (e no spam).",
+      message: null,
+      unverifiedEmail: user.email,
+    });
   }
   req.session.userId = user.id;
   res.redirect("/");
@@ -49,11 +70,48 @@ export async function register(req, res) {
 
   try {
     const user = await createUser({ email, storeName, whatsapp, password });
-    req.session.userId = user.id;
-    res.redirect("/");
+    // Falha no envio não desfaz o cadastro: a tela seguinte permite reenviar.
+    await sendVerificationEmail(user).catch((e) =>
+      console.error("[register] e-mail de confirmação não enviado:", e.message)
+    );
+    res.redirect("/verifique-email?email=" + encodeURIComponent(user.email));
   } catch (e) {
     fail("Não foi possível criar a conta. Tente novamente.");
   }
+}
+
+// ===== Confirmação de e-mail =====
+export function showCheckEmail(req, res) {
+  res.render("check-email", {
+    title: "Confirme seu e-mail",
+    email: req.query.email || "",
+    message: req.query.message || null,
+  });
+}
+
+// Resposta sempre igual, exista ou não a conta, para não revelar e-mails cadastrados.
+export async function resendVerification(req, res) {
+  const email = (req.body.email || "").trim();
+  const user = await findByEmail(email);
+  if (user && !user.emailVerifiedAt) {
+    await sendVerificationEmail(user).catch((e) =>
+      console.error("[verify] reenvio falhou:", e.message)
+    );
+  }
+  res.redirect(
+    "/verifique-email?email=" + encodeURIComponent(email) +
+      "&message=" + encodeURIComponent("Se a conta existir e ainda não estiver confirmada, enviamos um novo link. Pode levar alguns minutos.")
+  );
+}
+
+export async function confirmEmail(req, res) {
+  const ok = await verifyEmail(req.query.token);
+  if (!ok) {
+    return res.redirect(
+      "/login?error=" + encodeURIComponent("Link de confirmação inválido ou expirado. Entre com seu e-mail e senha para receber um novo.")
+    );
+  }
+  res.redirect("/login?message=" + encodeURIComponent("E-mail confirmado! Agora é só entrar."));
 }
 
 export function logout(req, res) {
@@ -86,15 +144,47 @@ export async function updateAccountProfile(req, res) {
   if (!storeName || !email || !whatsapp) {
     return res.redirect("/conta?error=" + encodeURIComponent("Preencha nome da loja, e-mail e WhatsApp."));
   }
-  const existing = await findByEmail(email);
-  if (existing && existing.id !== req.user.id) {
-    return res.redirect("/conta?error=" + encodeURIComponent("Esse e-mail já está em uso por outra conta."));
-  }
   try {
-    await updateProfile(req.user.id, { storeName, email, whatsapp });
-    res.redirect("/conta?message=" + encodeURIComponent("Dados atualizados com sucesso!"));
+    await updateProfile(req.user.id, { storeName, whatsapp });
   } catch (e) {
-    res.redirect("/conta?error=" + encodeURIComponent("Não foi possível salvar."));
+    return res.redirect("/conta?error=" + encodeURIComponent("Não foi possível salvar."));
+  }
+
+  const newEmail = email.toLowerCase().trim();
+  const emailChanged = newEmail !== req.user.email && newEmail !== req.user.pendingEmail;
+  if (!emailChanged) {
+    return res.redirect("/conta?message=" + encodeURIComponent("Dados atualizados com sucesso!"));
+  }
+
+  try {
+    await requestEmailChange(req.user, newEmail);
+    res.redirect(
+      "/conta?message=" +
+        encodeURIComponent(`Dados salvos. Enviamos um link para ${newEmail}: o e-mail da conta só muda depois que você confirmar.`)
+    );
+  } catch (e) {
+    const msg = e instanceof EmailChangeError ? e.message : "Não foi possível enviar o e-mail de confirmação. Tente novamente.";
+    if (!(e instanceof EmailChangeError)) console.error("[conta] troca de e-mail:", e.message);
+    res.redirect("/conta?error=" + encodeURIComponent("Os outros dados foram salvos, mas o e-mail não mudou. " + msg));
+  }
+}
+
+export async function cancelAccountEmailChange(req, res) {
+  await cancelEmailChange(req.user.id);
+  res.redirect("/conta?message=" + encodeURIComponent("Troca de e-mail cancelada."));
+}
+
+// Público: o link funciona mesmo sem estar logado (ex.: aberto no celular).
+export async function confirmAccountEmailChange(req, res) {
+  try {
+    const email = await confirmEmailChange(req.query.token);
+    const msg = `E-mail alterado para ${email}.`;
+    if (req.session?.userId) return res.redirect("/conta?message=" + encodeURIComponent(msg));
+    res.redirect("/login?message=" + encodeURIComponent(msg + " Entre com o novo endereço."));
+  } catch (e) {
+    if (!(e instanceof EmailChangeError)) throw e;
+    const target = req.session?.userId ? "/conta" : "/login";
+    res.redirect(target + "?error=" + encodeURIComponent(e.message));
   }
 }
 
@@ -114,12 +204,46 @@ export async function updateAccountPassword(req, res) {
   res.redirect("/conta?message=" + encodeURIComponent("Senha alterada com sucesso!"));
 }
 
-// ===== Recuperação de senha (placeholder — envio por e-mail ainda não configurado) =====
+// ===== Recuperação de senha =====
 export function showForgot(req, res) {
   if (req.session?.userId) return res.redirect("/");
   res.render("forgot", { title: "Recuperar senha", sent: false, email: "" });
 }
 
-export function submitForgot(req, res) {
-  res.render("forgot", { title: "Recuperar senha", sent: true, email: req.body.email || "" });
+// Resposta sempre igual, exista ou não a conta, para não revelar e-mails cadastrados.
+export async function submitForgot(req, res) {
+  const email = (req.body.email || "").trim();
+  const user = await findByEmail(email);
+  if (user) {
+    await sendPasswordResetEmail(user).catch((e) =>
+      console.error("[forgot] e-mail de recuperação não enviado:", e.message)
+    );
+  }
+  res.render("forgot", { title: "Recuperar senha", sent: true, email });
+}
+
+export async function showResetPassword(req, res) {
+  const token = req.query.token || "";
+  const valid = await isResetTokenValid(token);
+  res.render("reset-password", {
+    title: "Nova senha",
+    token,
+    error: valid ? null : "Link inválido ou expirado. Peça um novo na tela de recuperação de senha.",
+    invalidLink: !valid,
+  });
+}
+
+export async function submitResetPassword(req, res) {
+  const { token, newPassword, confirmPassword } = req.body;
+  const fail = (error, invalidLink = false) =>
+    res.status(400).render("reset-password", { title: "Nova senha", token, error, invalidLink });
+
+  if (newPassword !== confirmPassword) return fail("A nova senha e a confirmação não conferem.");
+  const pwError = validatePassword(newPassword);
+  if (pwError) return fail(pwError);
+
+  if (!(await resetPassword(token, newPassword))) {
+    return fail("Link inválido ou expirado. Peça um novo na tela de recuperação de senha.", true);
+  }
+  res.redirect("/login?message=" + encodeURIComponent("Senha redefinida! Entre com a nova senha."));
 }

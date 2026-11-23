@@ -2,6 +2,7 @@ import { signToken } from "../config/jwt.js";
 import {
   findByEmail, verifyPassword, validatePassword, createUser,
 } from "../services/accountService.js";
+import { sendVerificationEmail } from "../services/emailAuthService.js";
 import { listItems } from "../services/itemService.js";
 import { listProducts, setCostForSku, setDimsForSku } from "../services/productService.js";
 import { getDashboardData } from "../services/dashboardService.js";
@@ -20,6 +21,9 @@ export async function login(req, res) {
   if (!user || !(await verifyPassword(user, password))) {
     return res.status(401).json({ error: "E-mail ou senha inválidos." });
   }
+  if (!user.emailVerifiedAt) {
+    return res.status(403).json({ error: "E-mail não confirmado. Use o link enviado no cadastro." });
+  }
   res.json({ token: signToken(user.id), user: publicUser(user) });
 }
 
@@ -32,7 +36,14 @@ export async function register(req, res) {
   if (pwErr) return res.status(400).json({ error: pwErr });
   if (await findByEmail(email)) return res.status(409).json({ error: "E-mail já cadastrado." });
   const user = await createUser({ email, storeName, whatsapp, password });
-  res.status(201).json({ token: signToken(user.id), user: publicUser(user) });
+  // Sem token: a conta só pode ser usada depois de confirmar o e-mail.
+  await sendVerificationEmail(user).catch((e) =>
+    console.error("[api/register] e-mail de confirmação não enviado:", e.message)
+  );
+  res.status(201).json({
+    message: "Conta criada. Enviamos um link de confirmação para o e-mail informado.",
+    user: publicUser(user),
+  });
 }
 
 export async function me(req, res) {

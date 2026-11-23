@@ -19,6 +19,9 @@ export async function requireApiAuth(req, res, next) {
   if (!user) {
     return res.status(401).json({ error: "Usuário não encontrado." });
   }
+  if (!user.emailVerifiedAt) {
+    return res.status(403).json({ error: "E-mail não confirmado." });
+  }
 
   req.user = user;
   next();

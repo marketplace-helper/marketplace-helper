@@ -15,11 +15,32 @@ model User {
   whatsapp     String?
   passwordHash String
   createdAt    DateTime @default(now())
+  // Preenchido quando o usuário confirma o e-mail. Login bloqueado enquanto for null.
+  emailVerifiedAt DateTime?
+  // Novo e-mail aguardando confirmação (troca em "Minha conta"). O e-mail atual
+  // continua valendo até o usuário clicar no link enviado para este endereço.
+  pendingEmail    String?
 
   mlAccount    MlAccount?
   settings     Settings?
   businessRule BusinessRule?
   items        Item[]
+  authTokens   AuthToken[]
+}
+
+// Tokens de uso único enviados por e-mail (confirmação de cadastro e recuperação de senha).
+// Guardamos só o hash SHA-256; o token puro existe apenas no link do e-mail.
+model AuthToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String    // "VERIFY" | "RESET" | "EMAIL_CHANGE"
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, type])
 }
 
 // Credenciais do app do Mercado Livre + tokens OAuth, por usuario
