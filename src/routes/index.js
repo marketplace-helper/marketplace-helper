@@ -22,6 +22,7 @@ import {
 import { showItems } from "../controllers/itemsController.js";
 import { showDashboard } from "../controllers/dashboardController.js";
 import { showAuthPage } from "../controllers/authController.js";
+import mlOAuth from "../controllers/mlOAuthController.js";
 import {
   startSync,
   startSyncSelection,
@@ -66,6 +67,8 @@ router.get("/regras", showRules);
 router.get("/simulador", showSimulator);
 router.get("/frete", showFrete);
 router.get("/auth", showAuthPage);
+router.get("/ml/conectar", mlOAuth.connect);
+router.post("/ml/desconectar", mlOAuth.disconnect);
 router.get("/conta", showAccount);
 router.post("/conta/perfil", updateAccountProfile);
 router.post("/conta/email/cancelar", cancelAccountEmailChange);

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireApiAuth } from "../middleware/apiAuth.js";
 import * as api from "../controllers/apiController.js";
+import ml from "../controllers/mlOAuthController.js";
 
 const router = Router();
 
@@ -10,11 +11,16 @@ const a = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(
 // ===== Públicas =====
 router.post("/login", a(api.login));
 router.post("/register", a(api.register));
+// O Mercado Livre redireciona o navegador para cá, sem Bearer.
+router.get("/ml/oauth/callback", a(ml.callback));
 
 // ===== Protegidas (Authorization: Bearer <token>) =====
 router.use(a(requireApiAuth));
 
 router.get("/me", a(api.me));
+router.post("/ml/oauth/start", a(ml.apiStart));
+router.get("/ml/connection", a(ml.apiStatus));
+router.delete("/ml/connection", a(ml.apiDisconnect));
 router.get("/dashboard", a(api.dashboard));
 router.get("/anuncios", a(api.anuncios));
 router.get("/produtos", a(api.produtos));
