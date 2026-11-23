@@ -120,6 +120,12 @@ export async function getItemsDetails(userId, mlbs) {
   return items;
 }
 
+// IDs dos anúncios (MLB) de um pedido
+export async function getOrderItemIds(userId, orderId) {
+  const data = await apiGet(userId, `${API}/orders/${orderId}`);
+  return (data?.order_items || []).map((oi) => oi?.item?.id).filter(Boolean);
+}
+
 // Visitas de UM item (o endpoint /visits/items aceita apenas 1 id por chamada).
 // Retorna o total de visitas, ou null se a consulta falhar.
 export async function getItemVisits(userId, mlb) {

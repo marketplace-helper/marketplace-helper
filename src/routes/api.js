@@ -13,6 +13,8 @@ router.post("/login", a(api.login));
 router.post("/register", a(api.register));
 // O Mercado Livre redireciona o navegador para cá, sem Bearer.
 router.get("/ml/oauth/callback", a(ml.callback));
+// Notificações do Mercado Livre (items e orders_v2), sem Bearer.
+router.post("/ml/webhooks", ml.webhook);
 
 // ===== Protegidas (Authorization: Bearer <token>) =====
 router.use(a(requireApiAuth));

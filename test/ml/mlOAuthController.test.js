@@ -91,3 +91,16 @@ test("DELETE /api/ml/connection responde 204 e GET devolve o status", async () =
   await ctrl.apiStatus({ user: { id: 5 } }, r2);
   assert.deepEqual(r2.body, { authenticated: true, status: "active" });
 });
+
+test("webhook responde 200 antes de processar e não propaga erro", async (t) => {
+  t.mock.method(console, "error", () => {});
+  const ordem = [];
+  const c = createMlOAuthController({
+    webhookService: { handle: async () => { ordem.push("handle"); throw new Error("x"); } },
+  });
+  const res = { sendStatus(c) { ordem.push("status" + c); } };
+  c.webhook({ body: {} }, res);
+  assert.deepEqual(ordem, ["status200"]);
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual(ordem, ["status200", "handle"]);
+});

@@ -1,6 +1,7 @@
 import oauthFlowDefault from "../services/ml/oauthFlow.js";
 import connectionStoreDefault from "../services/ml/connectionStore.js";
 import { getAuthStatus as getAuthStatusDefault } from "../services/mlAuth.js";
+import webhookServiceDefault from "../services/ml/webhookService.js";
 import { config } from "../config/env.js";
 
 // Fábrica com dependências injetáveis (os testes não sobem o Express).
@@ -9,6 +10,7 @@ export function createMlOAuthController({
   connectionStore = connectionStoreDefault,
   getAuthStatus = getAuthStatusDefault,
   mobileRedirect = config.ml.mobileRedirect,
+  webhookService = webhookServiceDefault,
 } = {}) {
   // Web (sessão): inicia o fluxo e manda o navegador para o Mercado Livre.
   async function connect(req, res) {
@@ -46,7 +48,15 @@ export function createMlOAuthController({
     res.status(204).end();
   }
 
-  return { connect, disconnect, callback, apiStart, apiStatus, apiDisconnect };
+  // Pública: notificações do ML. Responde 200 na hora e processa depois.
+  function webhook(req, res) {
+    res.sendStatus(200);
+    Promise.resolve()
+      .then(() => webhookService.handle(req.body))
+      .catch((e) => console.error("[ML webhook] erro:", e?.message || e));
+  }
+
+  return { webhook, connect, disconnect, callback, apiStart, apiStatus, apiDisconnect };
 }
 
 export default createMlOAuthController();
