@@ -2,7 +2,8 @@ import jwt from "jsonwebtoken";
 import { config } from "../../config/env.js";
 
 // Audiência exclusiva do state do OAuth: impede que um JWT de login da API
-// (sem audiência) seja aceito como state, e vice-versa.
+// (sem audiência) seja aceito como state, e que um state seja aceito como
+// login (verifyToken rejeita qualquer token com audiência).
 const AUDIENCE = "ml-oauth";
 const EXPIRES_IN = "10m";
 
