@@ -21,7 +21,8 @@ model User {
   // continua valendo até o usuário clicar no link enviado para este endereço.
   pendingEmail    String?
 
-  mlAccount    MlAccount?
+  mlConnection MlConnection?
+  mlAttempts   MlOAuthAttempt[]
   settings     Settings?
   businessRule BusinessRule?
   items        Item[]
@@ -43,19 +44,36 @@ model AuthToken {
   @@index([userId, type])
 }
 
-// Credenciais do app do Mercado Livre + tokens OAuth, por usuario
-model MlAccount {
+// Conexao OAuth do usuario com o Mercado Livre (app unico da plataforma)
+model MlConnection {
+  id            Int       @id @default(autoincrement())
+  userId        Int       @unique
+  mlUserId      String?   @unique
+  accessToken   String?
+  refreshToken  String?
+  expiresAt     DateTime?
+  // "disconnected" | "connected" | "reconnect_required"
+  status        String    @default("disconnected")
+  lastRefreshAt DateTime?
+  lastError     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, expiresAt])
+}
+
+// Tentativa de autorizacao OAuth em andamento (state/PKCE), de uso unico
+model MlOAuthAttempt {
   id           Int       @id @default(autoincrement())
-  userId       Int       @unique
-  appId        String?
-  appSecret    String?
-  redirectUri  String?
-  accessToken  String?
-  refreshToken String?
-  mlUserId     String?
-  expiresIn    Int       @default(21600)
-  savedAt      DateTime?
-  updatedAt    DateTime  @updatedAt
+  nonce        String    @unique
+  userId       Int
+  codeVerifier String
+  client       String    // "web" | "mobile"
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

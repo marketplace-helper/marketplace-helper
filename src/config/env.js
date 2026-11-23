@@ -25,6 +25,19 @@ if (isProduction) {
   }
 }
 
+// App do Mercado Livre da plataforma (único para todos os usuários). Sem ele,
+// ninguém consegue conectar a conta do ML.
+if (isProduction) {
+  const missingMl = ["ML_APP_ID", "ML_APP_SECRET"].filter((k) => !process.env[k]);
+  if (missingMl.length) {
+    console.warn(
+      `[env] ATENÇÃO: ${missingMl.join(", ")} não definida(s). A conexão com o Mercado Livre não vai funcionar.`
+    );
+  }
+}
+
+const appUrl = (process.env.APP_URL || `http://localhost:${Number(process.env.PORT) || 3333}`).replace(/\/+$/, "");
+
 export const config = {
   isProduction,
   port: Number(process.env.PORT) || 3333,
@@ -33,7 +46,14 @@ export const config = {
   sessionSecret:
     process.env.SESSION_SECRET || "troque-este-segredo-no-env-por-um-aleatorio",
   // URL pública do app, usada nos links enviados por e-mail (sem barra no final).
-  appUrl: (process.env.APP_URL || `http://localhost:${Number(process.env.PORT) || 3333}`).replace(/\/+$/, ""),
+  appUrl,
+  // Credenciais do app ML da plataforma e redirecionamentos do OAuth.
+  ml: {
+    appId: process.env.ML_APP_ID || "",
+    appSecret: process.env.ML_APP_SECRET || "",
+    redirectUri: process.env.ML_REDIRECT_URI || `${appUrl}/api/ml/oauth/callback`,
+    mobileRedirect: process.env.ML_MOBILE_REDIRECT || "marketplacehelper://ml/oauth",
+  },
   // Envio de e-mails (Resend). Sem domínio verificado, use onboarding@resend.dev
   // (só entrega para o e-mail dono da conta Resend).
   resendApiKey: process.env.RESEND_API_KEY || "",
