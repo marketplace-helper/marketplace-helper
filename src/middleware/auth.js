@@ -25,5 +25,12 @@ export async function requireAuth(req, res, next) {
   });
   res.locals.lastSyncAt = s?.lastSyncAt || null;
 
+  // Status da conexão com o ML (para o banner "Reconectar")
+  const conn = await prisma.mlConnection.findUnique({
+    where: { userId: user.id },
+    select: { status: true },
+  });
+  res.locals.mlStatus = conn?.status || "disconnected";
+
   next();
 }

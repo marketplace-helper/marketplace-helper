@@ -21,12 +21,8 @@ import {
 } from "../controllers/accountController.js";
 import { showItems } from "../controllers/itemsController.js";
 import { showDashboard } from "../controllers/dashboardController.js";
-import {
-  showAuthPage,
-  saveMlCredentials,
-  submitCode,
-  oauthCallback,
-} from "../controllers/authController.js";
+import { showAuthPage } from "../controllers/authController.js";
+import mlOAuth from "../controllers/mlOAuthController.js";
 import {
   startSync,
   startSyncSelection,
@@ -71,14 +67,13 @@ router.get("/regras", showRules);
 router.get("/simulador", showSimulator);
 router.get("/frete", showFrete);
 router.get("/auth", showAuthPage);
-router.get("/callback", oauthCallback);
+router.get("/ml/conectar", mlOAuth.connect);
+router.post("/ml/desconectar", mlOAuth.disconnect);
 router.get("/conta", showAccount);
 router.post("/conta/perfil", updateAccountProfile);
 router.post("/conta/email/cancelar", cancelAccountEmailChange);
 router.post("/conta/senha", updateAccountPassword);
 
-router.post("/auth/credentials", saveMlCredentials);
-router.post("/auth/code", submitCode);
 router.post("/sync", startSync);
 router.post("/sync/selection", startSyncSelection);
 router.get("/sync/status", syncStatus);

@@ -2,8 +2,9 @@
 <%- include('partials/head') %>
 <%- include('partials/nav') %>
 
-<div class="container py-4" style="max-width: 820px;">
-  <h3 class="mb-3"><i class="bi bi-shield-lock"></i> Autorização Mercado Livre</h3>
+<div class="container py-4" style="max-width: 720px;">
+  <h3 class="mb-1"><i class="bi bi-shield-lock"></i> Conexão com o Mercado Livre</h3>
+  <p class="text-muted mb-4">Conecte sua conta para sincronizar anúncios, preços e fretes.</p>
 
   <% if (message) { %>
     <div class="alert alert-success"><i class="bi bi-check-circle"></i> <%= message %></div>
@@ -12,106 +13,49 @@
     <div class="alert alert-danger"><i class="bi bi-x-circle"></i> <%= error %></div>
   <% } %>
 
-  <% if (status.authenticated) { %>
-    <div class="alert <%= status.expired ? 'alert-warning' : 'alert-success' %>">
-      <strong>Status:</strong>
-      <% if (status.expired) { %>
-        Token expirado — será renovado automaticamente no próximo sync.
-      <% } else { %>
-        Conectado <% if (status.mlUserId) { %>(usuário ML <%= status.mlUserId %>)<% } %>.
-      <% } %>
-      <br />
-      <small class="text-muted">Autorizado em: <%= new Date(status.savedAt).toLocaleString('pt-BR') %></small>
-    </div>
-  <% } %>
-
-  <!-- Passo 1: credenciais do app -->
-  <div class="card shadow-sm mb-4">
-    <div class="card-body">
-      <h5 class="card-title">Passo 1 — Credenciais do seu app</h5>
-      <p class="text-muted mb-3">
-        Informe os dados do seu aplicativo no
-        <a href="https://developers.mercadolivre.com.br/" target="_blank">painel do Mercado Livre</a>.
-        Ficam salvos na sua conta.
-      </p>
-      <form action="/auth/credentials" method="post" class="row g-3">
-        <div class="col-12 col-md-6">
-          <label class="form-label">App ID (Client ID)</label>
-          <input type="password" name="appId" class="form-control cred-field" value="<%= status.appId %>" autocomplete="off" required />
-        </div>
-        <div class="col-12 col-md-6">
-          <label class="form-label">Secret Key (Client Secret)</label>
-          <input
-            type="password" name="appSecret" class="form-control cred-field"
-            value="" autocomplete="off"
-            placeholder="<%= status.hasSecret ? '•••••••• (salvo — deixe em branco para manter)' : 'Cole o Secret Key' %>"
-            <%= status.hasSecret ? '' : 'required' %>
-          />
-          <% if (status.hasSecret) { %>
-            <small class="text-success"><i class="bi bi-lock-fill"></i> Secret já salvo com segurança. Preencha só se for trocar.</small>
-          <% } %>
-        </div>
-        <div class="col-12">
-          <label class="form-label">Redirect URI</label>
-          <input type="text" name="redirectUri" class="form-control" value="<%= status.redirectUri %>"
-                 placeholder="https://seu-dominio/redirect" required />
-          <small class="text-muted">Deve ser idêntica à cadastrada no painel do ML.</small>
-        </div>
-        <div class="col-12 d-flex align-items-center gap-3">
-          <button type="submit" class="btn btn-primary">
-            <i class="bi bi-save"></i> Salvar credenciais
-          </button>
-          <div class="form-check mb-0">
-            <input class="form-check-input" type="checkbox" id="showCreds" />
-            <label class="form-check-label text-muted" for="showCreds">Mostrar credenciais</label>
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Passo 2: autorizar -->
   <div class="card shadow-sm">
     <div class="card-body">
-      <h5 class="card-title">Passo 2 — Autorizar</h5>
-      <% if (!status.hasCredentials) { %>
-        <p class="text-muted mb-0">
-          <i class="bi bi-info-circle"></i> Salve as credenciais no Passo 1 para liberar a autorização.
-        </p>
-      <% } else { %>
-        <p class="text-muted mb-2">
-          Clique no botão, faça login e autorize. O navegador vai para o endereço do Redirect URI
-          com um parâmetro <code>?code=...</code> na barra de endereço. Cole a URL inteira (ou só o código) abaixo.
-          <br />
-          <span class="text-danger"><i class="bi bi-clock"></i> O código expira em poucos minutos.</span>
-        </p>
-        <a href="<%= authUrl %>" target="_blank" class="btn btn-warning fw-semibold mb-3">
-          <i class="bi bi-box-arrow-up-right"></i> Autorizar no Mercado Livre
-        </a>
-        <form action="/auth/code" method="post" class="row g-2">
-          <div class="col-12 col-md-9">
-            <input type="text" name="code" class="form-control" placeholder="Cole a URL ou o código TG-..." required />
-          </div>
-          <div class="col-12 col-md-3 d-grid">
-            <button type="submit" class="btn btn-primary"><i class="bi bi-key"></i> Conectar</button>
-          </div>
+      <% if (status.status === 'active') { %>
+        <h5 class="card-title"><i class="bi bi-check-circle-fill text-success"></i> Conta conectada</h5>
+        <ul class="list-unstyled mb-3">
+          <% if (profile && profile.nickname) { %>
+            <li><strong>Usuário:</strong> <%= profile.nickname %></li>
+          <% } %>
+          <% if (status.mlUserId) { %>
+            <li><strong>ID no Mercado Livre:</strong> <%= status.mlUserId %></li>
+          <% } %>
+          <% if (status.expiresAt) { %>
+            <li class="text-muted small">
+              Acesso válido até <%= new Date(status.expiresAt).toLocaleString('pt-BR') %> (renovado automaticamente).
+            </li>
+          <% } %>
+        </ul>
+        <form action="/ml/desconectar" method="post" onsubmit="return confirm('Desconectar a conta do Mercado Livre?');">
+          <button type="submit" class="btn btn-outline-danger">
+            <i class="bi bi-plug"></i> Desconectar
+          </button>
         </form>
+
+      <% } else if (status.status === 'reconnect_required') { %>
+        <div class="alert alert-warning">
+          <i class="bi bi-exclamation-triangle"></i>
+          Sua conexão com o Mercado Livre expirou ou foi revogada. Reconecte para continuar sincronizando.
+        </div>
+        <a href="/ml/conectar" class="btn btn-warning fw-semibold">
+          <i class="bi bi-arrow-repeat"></i> Reconectar
+        </a>
+
+      <% } else { %>
+        <h5 class="card-title">Conta não conectada</h5>
+        <p class="text-muted">
+          Você será levado ao Mercado Livre para autorizar o acesso e volta para cá em seguida.
+        </p>
+        <a href="/ml/conectar" class="btn btn-warning fw-semibold">
+          <i class="bi bi-box-arrow-up-right"></i> Conectar com Mercado Livre
+        </a>
       <% } %>
     </div>
   </div>
 </div>
-
-<script>
-  // Alterna entre ocultar/mostrar os campos de credenciais
-  (function () {
-    var chk = document.getElementById("showCreds");
-    if (!chk) return;
-    chk.addEventListener("change", function () {
-      document.querySelectorAll(".cred-field").forEach(function (el) {
-        el.type = chk.checked ? "text" : "password";
-      });
-    });
-  })();
-</script>
 
 <%- include('partials/footer') %>

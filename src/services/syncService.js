@@ -11,6 +11,9 @@ import {
   mapListingType,
   formatDate,
 } from "./mlApi.js";
+import { filtrarItensDoVendedor } from "./ml/sellerFilter.js";
+import connectionStore from "./ml/connectionStore.js";
+import { ReconnectRequiredError, NotConnectedError } from "./ml/tokenManager.js";
 
 // Estado de progresso por usuario (userId -> state)
 const syncStates = new Map();
@@ -138,13 +141,21 @@ async function doSync(userId, selection) {
   }
 
   state.phase = "buscando detalhes";
-  const details = await getItemsDetails(userId, ids);
+  let details = await getItemsDetails(userId, ids);
+  if (selection) {
+    // Seleção vem de fora (webhook público, /sync/selection): só vale o que é do próprio vendedor.
+    const conn = await connectionStore.get(userId);
+    const mlUserId = conn?.mlUserId ?? (await getMlUserId(userId));
+    details = filtrarItensDoVendedor(details, mlUserId);
+  }
 
   state.phase = "processando";
   for (const data of details) {
     try {
       await upsertItem(userId, data, zip, state);
     } catch (e) {
+      // Conexão revogada no meio do sync: encerra com erro em vez de fingir sucesso.
+      if (e instanceof ReconnectRequiredError || e instanceof NotConnectedError) throw e;
       console.warn(`[SYNC] falha no item ${data?.id}: ${e.message}`);
     }
     state.processed++;
