@@ -1,10 +1,18 @@
+import { calcularTributos } from "./tributos/calcularTributos.js";
+
 // Cálculo de margem e lucro líquido por anúncio.
 //
 // Base de venda: precoPor (se > 0), senão precoDe.
-// Impostos: (ICMS + IPI + DIFAL + Custo Operacional)% sobre a base de venda.
+// Impostos: tributos de calcularTributos() — ICMS/IPI/DIFAL/Custo operacional
+// digitados pelo usuário + PIS/Cofins/CBS/IBS da tabela, conforme regime e data.
+// Custo ML = comissão + frete (os tributos ficam em `impostos`).
 // Lucro líquido = base - custoProduto - comissão - frete - impostos
 // Margem % = lucro / base * 100
-export function computeProfit(item, rules) {
+//
+// `ctx` é o contexto tributário ({ rules, aliquotas }, ver tributos/contexto.js).
+// Se vier só o BusinessRule (sem `aliquotas`), calcula como antes da reforma.
+export function calcularCustoProduto(item, ctx) {
+  const { rules, aliquotas } = ctx?.aliquotas ? ctx : { rules: ctx || {}, aliquotas: {} };
   const base =
     item.precoPor && item.precoPor > 0 ? item.precoPor : item.precoDe || 0;
 
@@ -13,23 +21,20 @@ export function computeProfit(item, rules) {
   const frete = item.frete || 0;
   const custoML = comissao + frete;
 
-  const pctImpostos =
-    ((rules.icms || 0) +
-      (rules.ipi || 0) +
-      (rules.difal || 0) +
-      (rules.custoOperacional || 0)) /
-    100;
-  const impostos = base * pctImpostos;
+  const tributos = calcularTributos({ base, custoProduto: item.custoProduto, rules, aliquotas });
+  const impostos = tributos.total;
 
   const lucro = base > 0 ? base - custo - comissao - frete - impostos : null;
   const margem = base > 0 && lucro != null ? (lucro / base) * 100 : null;
 
-  return { base, custoML, impostos, lucro, margem };
+  return { base, custoML, impostos, tributos, lucro, margem };
 }
 
+export const computeProfit = calcularCustoProduto;
+
 // Anexa o objeto _calc a cada item
-export function attachProfit(items, rules) {
-  return items.map((it) => ({ ...it, _calc: computeProfit(it, rules) }));
+export function attachProfit(items, ctx) {
+  return items.map((it) => ({ ...it, _calc: calcularCustoProduto(it, ctx) }));
 }
 
 // Avalia a "saúde" do anúncio a partir de status, estoque, custo e margem.

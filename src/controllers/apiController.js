@@ -10,6 +10,7 @@ import { getBusinessRules, updateBusinessRules } from "../services/rulesService.
 import { freteEstimado } from "../services/freteTable.js";
 import { runSync, getSyncState, getSettings, updateZipCode } from "../services/syncService.js";
 import { getAuthStatus } from "../services/mlAuth.js";
+import { criarContextoTributario } from "../services/tributos/contexto.js";
 import { buildProductsWorkbook } from "../services/exportService.js";
 
 const publicUser = (u) => ({ id: u.id, email: u.email, storeName: u.storeName, whatsapp: u.whatsapp });
@@ -53,12 +54,12 @@ export async function me(req, res) {
 
 // ===== Dados =====
 export async function dashboard(req, res) {
-  res.json(await getDashboardData(req.user.id));
+  res.json(await getDashboardData(req.user.id, { ano: req.query.ano }));
 }
 
 export async function anuncios(req, res) {
-  const { page, search, sort, dir, filter } = req.query;
-  res.json(await listItems({ userId: req.user.id, page, search, sort, dir, filter }));
+  const { page, search, sort, dir, filter, ano } = req.query;
+  res.json(await listItems({ userId: req.user.id, page, search, sort, dir, filter, ano }));
 }
 
 export async function produtos(req, res) {
@@ -142,4 +143,10 @@ export async function iotMedidas(req, res) {
     divergente: !!c.divergente,
     comparacao: r.comparacao,
   });
+}
+
+// Alíquotas que valem para o usuário (regime e UF das Regras) hoje ou no ?ano= simulado.
+export async function aliquotasTributos(req, res) {
+  const ctx = await criarContextoTributario(req.user.id, { ano: req.query.ano });
+  res.json({ regime: ctx.regime, ano: ctx.ano, data: ctx.data, aliquotas: ctx.aliquotas });
 }

@@ -1,17 +1,17 @@
 import ExcelJS from "exceljs";
 import prisma from "../config/prisma.js";
 import { buildItemWhere } from "./itemService.js";
-import { getBusinessRules } from "./rulesService.js";
-import { computeProfit } from "./calcService.js";
+import { calcularCustoProduto } from "./calcService.js";
+import { criarContextoTributario } from "./tributos/contexto.js";
 import { getProductsForExport } from "./productService.js";
 
 // Gera um workbook Excel com os itens do usuario (respeita o filtro de busca)
-export async function buildItemsWorkbook(userId, search) {
+export async function buildItemsWorkbook(userId, search, { ano = null } = {}) {
   const items = await prisma.item.findMany({
     where: buildItemWhere(userId, search),
     orderBy: { updatedAt: "desc" },
   });
-  const rules = await getBusinessRules(userId);
+  const ctx = await criarContextoTributario(userId, { ano });
 
   const wb = new ExcelJS.Workbook();
   wb.creator = "Marketplace Helper";
@@ -60,7 +60,7 @@ export async function buildItemsWorkbook(userId, search) {
   };
 
   for (const it of items) {
-    const calc = computeProfit(it, rules);
+    const calc = calcularCustoProduto(it, ctx);
     ws.addRow({
       ...it,
       custoML: calc.custoML,
