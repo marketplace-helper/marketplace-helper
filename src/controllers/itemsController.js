@@ -4,8 +4,8 @@ import { getAuthStatus } from "../services/mlAuth.js";
 
 export async function showItems(req, res) {
   const userId = req.user.id;
-  const { page, search, sort, dir, filter } = req.query;
-  const data = await listItems({ userId, page, search, sort, dir, filter });
+  const { page, search, sort, dir, filter, ano } = req.query;
+  const data = await listItems({ userId, page, search, sort, dir, filter, ano });
   const settings = await getSettings(userId);
   const status = await getAuthStatus(userId);
 

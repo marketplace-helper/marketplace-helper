@@ -9,6 +9,7 @@
     var p = '/anuncios?sort=' + col + '&dir=' + d;
     if (search) p += '&search=' + encodeURIComponent(search);
     if (filter) p += '&filter=' + encodeURIComponent(filter);
+    if (ano) p += '&ano=' + ano;
     return p;
   }
   function arrow(col) {
@@ -31,6 +32,7 @@
       <input type="hidden" name="sort" value="<%= sort %>" />
       <input type="hidden" name="dir" value="<%= dir %>" />
       <% if (filter) { %><input type="hidden" name="filter" value="<%= filter %>" /><% } %>
+      <% if (ano) { %><input type="hidden" name="ano" value="<%= ano %>" /><% } %>
       <div class="input-group">
         <span class="input-group-text"><i class="bi bi-search"></i></span>
         <input
@@ -56,7 +58,7 @@
 
     <a
       class="btn btn-success"
-      href="/export<%= search ? ('?search=' + encodeURIComponent(search)) : '' %>"
+      href="/export<%= (function () { var q = []; if (search) q.push('search=' + encodeURIComponent(search)); if (ano) q.push('ano=' + ano); return q.length ? '?' + q.join('&') : ''; })() %>"
     >
       <i class="bi bi-file-earmark-excel"></i> Exportar Excel
     </a>
@@ -86,6 +88,8 @@
       <div id="syncBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
     </div>
   </div>
+
+  <%- include('partials/anoTributario', { action: '/anuncios', ano: ano, params: { search: search, sort: sort, dir: dir, filter: filter } }) %>
 
   <% if (!authenticated) { %>
     <div class="alert alert-warning">
@@ -305,6 +309,7 @@
         if (search) u += '&search=' + encodeURIComponent(search);
         if (sort) u += '&sort=' + sort + '&dir=' + dir;
         if (filter) u += '&filter=' + encodeURIComponent(filter);
+        if (ano) u += '&ano=' + ano;
         return u;
       }
     %>

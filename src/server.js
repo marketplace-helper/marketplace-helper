@@ -9,6 +9,7 @@ import routes from "./routes/index.js";
 import apiRoutes from "./routes/api.js";
 import { openapiSpec } from "./docs/openapi.js";
 import { startScheduler } from "./scheduler.js";
+import { ANOS_SIMULAVEIS, REGIME_LABEL } from "./services/tributos/constantes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,6 +23,8 @@ if (config.isProduction) app.set("trust proxy", 1);
 // View engine
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
+app.locals.ANOS_SIMULAVEIS = ANOS_SIMULAVEIS;
+app.locals.REGIME_LABEL = REGIME_LABEL;
 
 // Middlewares
 app.use(express.urlencoded({ extended: true }));
