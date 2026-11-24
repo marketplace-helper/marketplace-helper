@@ -1,11 +1,11 @@
 import prisma from "../config/prisma.js";
-import { calcularCustoProduto, computeHealth } from "./calcService.js";
-import { criarContextoTributario } from "./tributos/contexto.js";
+import { getBusinessRules } from "./rulesService.js";
+import { computeProfit, computeHealth } from "./calcService.js";
 import { avaliaDivergencia } from "./freteTable.js";
 
 // Dados do dashboard, escopados ao usuario
-export async function getDashboardData(userId, { ano = null } = {}) {
-  const ctx = await criarContextoTributario(userId, { ano });
+export async function getDashboardData(userId) {
+  const rules = await getBusinessRules(userId);
 
   // Últimos 5 anúncios cadastrados (com cálculo e saúde)
   const ultimosRaw = await prisma.item.findMany({
@@ -14,7 +14,7 @@ export async function getDashboardData(userId, { ano = null } = {}) {
     take: 5,
   });
   const ultimosAnuncios = ultimosRaw.map((it) => {
-    const calc = calcularCustoProduto(it, ctx);
+    const calc = computeProfit(it, rules);
     return { ...it, _calc: calc, _health: computeHealth(it, calc) };
   });
 
@@ -81,7 +81,7 @@ export async function getDashboardData(userId, { ano = null } = {}) {
   const LIMIAR = 8; // limiar de desempenho (margem %) acordado com o usuário
 
   for (const it of allItems) {
-    const calc = calcularCustoProduto(it, ctx);
+    const calc = computeProfit(it, rules);
     if (it.custoProduto != null) comCusto++;
 
     if (it.freteMudou && it.frete != null && it.freteAnterior != null && it.frete > it.freteAnterior) {
@@ -153,8 +153,6 @@ export async function getDashboardData(userId, { ano = null } = {}) {
     .slice(0, 10);
 
   return {
-    ano: ctx.ano,
-    regime: ctx.regime,
     ultimosAnuncios,
     insights,
     // KPIs de desempenho (contagens clicáveis)

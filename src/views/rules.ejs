@@ -17,50 +17,6 @@
       <div class="card-body">
         <div class="row g-4">
           <div class="col-12 col-md-6">
-            <label class="form-label fw-semibold" for="regime">Regime tributário</label>
-            <select id="regime" name="regime" class="form-select">
-              <% REGIMES.forEach(function (r) { %>
-                <option value="<%= r %>" <%= regime === r ? 'selected' : '' %>><%= REGIME_LABEL[r] %></option>
-              <% }); %>
-            </select>
-            <small class="text-muted">Define PIS/Cofins hoje e CBS/IBS a partir de 2027.</small>
-          </div>
-
-          <div class="col-12 col-md-6">
-            <label class="form-label fw-semibold" for="ufOrigem">UF de origem</label>
-            <select id="ufOrigem" name="ufOrigem" class="form-select">
-              <option value="">—</option>
-              <% UFS.forEach(function (u) { %>
-                <option value="<%= u %>" <%= rules.ufOrigem === u ? 'selected' : '' %>><%= u %></option>
-              <% }); %>
-            </select>
-            <small class="text-muted">Estado de onde as vendas saem.</small>
-          </div>
-
-          <div class="col-12">
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="creditoCompra" name="creditoCompra" value="1"
-                     <%= rules.creditoCompra ? 'checked' : '' %> <%= regime === 'SIMPLES' ? 'disabled' : '' %> />
-              <label class="form-check-label" for="creditoCompra">
-                Considerar crédito de PIS/Cofins/CBS/IBS na compra
-              </label>
-            </div>
-            <small class="text-muted">
-              Abate o imposto pago na compra (custo do produto × alíquota) dos tributos não cumulativos.
-              Não se aplica ao Simples Nacional.
-            </small>
-          </div>
-
-          <% if (regime === 'PRESUMIDO' || regime === 'REAL') { %>
-            <div class="col-12">
-              <div class="alert alert-warning small mb-0">
-                <i class="bi bi-exclamation-triangle"></i>
-                PIS/Cofins agora são calculados automaticamente. Se você os somou no ICMS ou no Custo operacional, retire-os de lá para não contar em dobro.
-              </div>
-            </div>
-          <% } %>
-
-          <div class="col-12 col-md-6">
             <label class="form-label fw-semibold">ICMS</label>
             <div class="input-group">
               <input type="number" step="0.01" min="0" name="icms" class="form-control"
@@ -111,43 +67,6 @@
       </div>
     </div>
   </form>
-  <script>
-    (function () {
-      var regime = document.getElementById('regime');
-      var credito = document.getElementById('creditoCompra');
-      regime.addEventListener('change', function () {
-        credito.disabled = regime.value === 'SIMPLES';
-        if (credito.disabled) credito.checked = false;
-      });
-    })();
-  </script>
-
-  <!-- Alíquotas da tabela que valem hoje para o regime/UF escolhidos -->
-  <div class="card shadow-sm mt-4">
-    <div class="card-header bg-white fw-semibold">
-      <i class="bi bi-percent"></i> Alíquotas aplicadas hoje (<%= REGIME_LABEL[regime] %>)
-    </div>
-    <div class="card-body">
-      <table class="table table-sm mb-0" style="font-size: 0.85rem;">
-        <thead><tr><th>Tributo</th><th class="text-end">Alíquota</th><th>Observação</th></tr></thead>
-        <tbody>
-          <% aliquotas.forEach(function (a) { %>
-            <tr>
-              <td><%= a.tributo %></td>
-              <td class="text-end">
-                <%= a.tipo === 'FATOR' ? ('× ' + a.aliquota + ' sobre o ICMS digitado') : (a.aliquota + '%') %>
-              </td>
-              <td>
-                <% if (a.somenteDestaque) { %><span class="badge text-bg-light">só destaque</span><% } %>
-                <% if (a.naoCumulativo) { %><span class="badge text-bg-light">não cumulativo</span><% } %>
-                <% if (a.observacao && a.observacao.indexOf('Estimativa') === 0) { %><span class="badge text-bg-warning">estimativa</span><% } %>
-              </td>
-            </tr>
-          <% }); %>
-        </tbody>
-      </table>
-    </div>
-  </div>
 
   <!-- Seção explicativa do cálculo -->
   <div class="card shadow-sm mt-4">
@@ -166,9 +85,8 @@
           Se o anúncio não estiver em promoção, usamos o <strong>Preço De</strong>.
         </li>
         <li class="mb-2">
-          <strong>Impostos</strong> — aplicamos sobre a base de venda as alíquotas que você cadastra aqui
-          (ICMS + IPI + DIFAL + Custo Operacional) e, conforme o regime, PIS/Cofins (até 2026) e CBS/IBS
-          (a partir de 2027). O ICMS é reduzido gradualmente de 2029 a 2032 e deixa de existir em 2033.
+          <strong>Impostos</strong> — somamos as alíquotas que você cadastra aqui
+          (ICMS + IPI + DIFAL + Custo Operacional) e aplicamos esse percentual sobre a base de venda.
         </li>
         <li class="mb-2">
           <strong>Lucro Líquido</strong> = Base − Custo do produto − Comissão do ML − Frete − Impostos.
@@ -183,68 +101,66 @@
         Margem&nbsp;% = (Lucro ÷ Base) × 100
       </div>
 
-      <h6 class="fw-semibold mb-2"><i class="bi bi-lightbulb text-warning"></i> Exemplo (com as suas regras atuais)</h6>
+      <h6 class="fw-semibold mb-2"><i class="bi bi-lightbulb text-warning"></i> Exemplo (com as suas alíquotas atuais)</h6>
       <p class="text-muted small mb-2">
         Produto de exemplo: preço de venda R$ <%= exemplo.precoPor.toFixed(2) %>,
-        custo R$ <%= exemplo.custoProduto.toFixed(2) %>, comissão R$ <%= exemplo.comissao.toFixed(2) %>,
+        custo R$ <%= exemplo.custo.toFixed(2) %>, comissão R$ <%= exemplo.comissao.toFixed(2) %>,
         frete R$ <%= exemplo.frete.toFixed(2) %>.
       </p>
 
       <div class="table-responsive">
         <table class="table table-sm align-middle mb-0" style="font-size: 0.85rem;">
-          <thead>
-            <tr>
-              <th></th>
-              <% exemplos.forEach(function (e) { %><th class="text-end"><%= e.ano || 'Hoje' %></th><% }); %>
-            </tr>
-          </thead>
           <tbody>
             <tr>
-              <td>Base de venda</td>
-              <% exemplos.forEach(function (e) { %><td class="text-end">R$ <%= e.base.toFixed(2) %></td><% }); %>
+              <td>Base de venda (Preço Por)</td>
+              <td class="text-end fw-semibold">R$ <%= exemplo.base.toFixed(2) %></td>
             </tr>
             <tr class="text-danger">
-              <td>(−) Custo + Comissão + Frete</td>
-              <% exemplos.forEach(function (e) { %><td class="text-end">− R$ <%= (exemplo.custoProduto + e.custoML).toFixed(2) %></td><% }); %>
+              <td>(−) Custo do produto</td>
+              <td class="text-end">− R$ <%= exemplo.custo.toFixed(2) %></td>
             </tr>
-            <% ['ICMS', 'IPI', 'DIFAL', 'CUSTO_OPERACIONAL', 'PIS', 'COFINS', 'CBS', 'IBS'].forEach(function (t) {
-                 var algum = exemplos.some(function (e) { return e.tributos.linhas.some(function (l) { return l.tributo === t && (l.devido > 0 || l.somenteDestaque); }); });
-                 if (!algum) return; %>
-              <tr class="text-danger small">
-                <td class="ps-3">(−) <%= t === 'CUSTO_OPERACIONAL' ? 'Custo operacional' : t %></td>
-                <% exemplos.forEach(function (e) {
-                     var l = e.tributos.linhas.find(function (x) { return x.tributo === t; }); %>
-                  <td class="text-end">
-                    <% if (!l) { %>—<% } else if (l.somenteDestaque) { %><span class="text-muted">só destaque</span><% } else { %>− R$ <%= l.devido.toFixed(2) %><%= l.estimativa ? '*' : '' %><% } %>
-                  </td>
-                <% }); %>
-              </tr>
-            <% }); %>
+            <tr class="text-danger">
+              <td>(−) Comissão do Mercado Livre</td>
+              <td class="text-end">− R$ <%= exemplo.comissao.toFixed(2) %></td>
+            </tr>
+            <tr class="text-danger">
+              <td>(−) Frete</td>
+              <td class="text-end">− R$ <%= exemplo.frete.toFixed(2) %></td>
+            </tr>
+            <tr class="text-danger">
+              <td>
+                (−) Impostos sobre a venda
+                <small class="text-muted d-block">
+                  ICMS <%= rules.icms %>% (R$ <%= exemplo.icmsVal.toFixed(2) %>)
+                  · IPI <%= rules.ipi %>% (R$ <%= exemplo.ipiVal.toFixed(2) %>)
+                  · DIFAL <%= rules.difal %>% (R$ <%= exemplo.difalVal.toFixed(2) %>)
+                  · Custo Op. <%= rules.custoOperacional %>% (R$ <%= exemplo.custoOpVal.toFixed(2) %>)
+                </small>
+              </td>
+              <td class="text-end align-top">− R$ <%= exemplo.impostos.toFixed(2) %></td>
+            </tr>
             <tr class="border-top">
               <td class="fw-semibold">= Lucro Líquido</td>
-              <% exemplos.forEach(function (e) { %>
-                <td class="text-end fw-bold <%= e.lucro >= 0 ? 'text-success' : 'text-danger' %>">R$ <%= e.lucro.toFixed(2) %></td>
-              <% }); %>
+              <td class="text-end fw-bold <%= exemplo.lucro >= 0 ? 'text-success' : 'text-danger' %>">
+                R$ <%= exemplo.lucro.toFixed(2) %>
+              </td>
             </tr>
             <tr>
               <td class="fw-semibold">Margem</td>
-              <% exemplos.forEach(function (e) { %>
-                <td class="text-end">
-                  <span class="badge <%= e.margem >= 0 ? 'text-bg-success' : 'text-bg-danger' %>"><%= e.margem.toFixed(1) %>%</span>
-                </td>
-              <% }); %>
+              <td class="text-end">
+                <span class="badge <%= exemplo.margem >= 0 ? 'text-bg-success' : 'text-bg-danger' %>">
+                  <%= exemplo.margem.toFixed(1) %>%
+                </span>
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <p class="text-muted small mt-2 mb-0">
-        * Alíquota estimada: a de referência ainda não foi fixada. Anos futuros são simulações — confira com seu contador.
-      </p>
 
-      <% if (exemplos[0].impostos === 0) { %>
+      <% if (exemplo.impostos === 0) { %>
         <p class="text-muted small mt-3 mb-0">
           <i class="bi bi-info-circle"></i>
-          Suas alíquotas estão zeradas, por isso os impostos de hoje ficaram em R$ 0,00 no exemplo.
+          Suas alíquotas estão zeradas, por isso os impostos ficaram em R$ 0,00 no exemplo.
           Preencha os campos acima para vê-los no cálculo.
         </p>
       <% } %>

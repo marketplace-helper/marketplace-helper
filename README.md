@@ -181,17 +181,15 @@ dashboard ML/
 
 ## 5. Modelo de dados
 
-Definido em `prisma/schema.prisma`. Entidades escopadas a um usuário (exceto `User` e a tabela global `AliquotaTributaria`).
+Definido em `prisma/schema.prisma`. Seis entidades, todas (exceto `User`) escopadas a um usuário.
 
 ```
 User 1───1 MlConnection       (tokens OAuth cifrados e status da conexão)
  │   1───1 Settings           (CEP de frete, data da última sincronização)
- │   1───1 BusinessRule       (regime, UF, crédito, alíquotas de ICMS, IPI, DIFAL, custo operacional)
+ │   1───1 BusinessRule       (alíquotas de ICMS, IPI, DIFAL, custo operacional)
  │   1───N Item               (anúncios do vendedor)
                  │
                  1───N ShippingHistory  (histórico de frete por item)
-
-AliquotaTributaria  (global: PIS/Cofins/CBS/IBS e fator do ICMS, com vigência)
 ```
 
 | Entidade | Campos principais | Observações |
@@ -199,8 +197,7 @@ AliquotaTributaria  (global: PIS/Cofins/CBS/IBS e fator do ICMS, com vigência)
 | **User** | `email` (único), `storeName`, `whatsapp`, `passwordHash` | Senha com hash bcrypt |
 | **MlConnection** | `mlUserId`, `accessToken`, `refreshToken`, `expiresAt`, `status`, `lastRefreshAt`, `lastError` | *Tokens* **cifrados** (AES-256-GCM); `status`: `active` / `reconnect_required` / `disconnected` |
 | **Settings** | `zipCode`, `lastSyncAt` | CEP usado no cálculo de frete |
-| **BusinessRule** | `icms`, `ipi`, `difal`, `custoOperacional`, `regime`, `ufOrigem`, `creditoCompra` | Percentuais (%); `regime` padrão `SIMPLES` |
-| **AliquotaTributaria** | `chave` (única), `tributo`, `aliquota`, `tipo`, `regime`, `vigenciaInicio`, `vigenciaFim`, `uf`, `naoCumulativo`, `somenteDestaque`, `observacao` | Ver [Alíquotas tributárias](#81-alíquotas-tributárias-reforma-cbsibs) |
+| **BusinessRule** | `icms`, `ipi`, `difal`, `custoOperacional` | Percentuais (%) |
 | **Item** | `mlb`, `sku`, `titulo`, `thumbnail`, `permalink`, `custoProduto`, `largura`, `altura`, `comprimento`, `pesoReal`, `precoDe`, `precoPor`, `frete`, `comissao`, `comissaoPct`, `visitas`, `vendas`, `estoque`, `status`, `full`, `catalogo`, categorias | Único por `(userId, mlb)`. Medidas (L/A/C/peso) são aplicadas por SKU |
 | **ShippingHistory** | `mlb`, `cost`, `capturedAt` | Permite detectar mudanças de frete |
 
@@ -284,57 +281,18 @@ definitivos (4xx) não são repetidos.
 
 ## 8. Regras de negócio e cálculo financeiro
 
-O cálculo central está em `calcService.js::calcularCustoProduto(item, ctx)` (o nome antigo
-`computeProfit` continua exportado). `ctx` é o **contexto tributário** do usuário
-(`tributos/contexto.js::criarContextoTributario(userId, { ano })`): as regras da tela *Regras* e
-as alíquotas da tabela `AliquotaTributaria` válidas para o regime, a UF e a data do cálculo.
+O cálculo central está em `calcService.js::computeProfit(item, rules)`:
 
 ```
 base      = precoPor  (se houver promoção)  |  precoDe  (caso contrário)
-impostos  = Σ devido de cada tributo (tributos/calcularTributos.js)
-            ICMS     = base × ICMS% × fator de transição (1 até 2028 … 0 em 2033)
-            IPI, DIFAL, Custo Operacional = base × %
-            PIS, COFINS, CBS, IBS = max(0, débito − crédito)
-                débito  = base × alíquota da tabela
-                crédito = custoProduto × alíquota   (só não cumulativos e com "crédito na compra" ligado)
+impostos  = base × (ICMS + IPI + DIFAL + Custo Operacional) / 100
 lucro     = base − custoProduto − comissão − frete − impostos
 margem    = lucro / base × 100
 custoML   = comissão + frete            (quanto o Mercado Livre "consome")
 ```
 
-O regime tributário, a UF de origem, a opção de crédito e as alíquotas de ICMS/IPI/DIFAL/Custo
-operacional vêm da entidade `BusinessRule` (tela *Regras*). O padrão é **Simples Nacional**, que
-não acrescenta PIS/Cofins/CBS/IBS: para quem não mexer em *Regras*, as margens são as mesmas de
-antes. O custo do produto é informado pelo vendedor (tela *Produtos*, por SKU).
-
-**Simulação por ano** — Anúncios, Dashboard, Exportar e Simulador aceitam `?ano=` (seletor
-"Alíquotas de": Hoje, 2027, 2029, 2033). Anos simulados usam a data de 1º de julho daquele ano e
-mostram o aviso "Simulação de &lt;ano&gt; com alíquotas estimadas — confira com seu contador.".
-
-### 8.1. Alíquotas tributárias (reforma CBS/IBS)
-
-As alíquotas **não ficam no código**: ficam na tabela `AliquotaTributaria`, cada linha com sua
-vigência. A escolha (`tributos/resolverAliquotas.js`) filtra por regime (exato ou `TODOS`), data e
-UF e, se mais de uma linha vale, prefere UF preenchida → regime exato → início mais recente → maior
-`id`. Linhas com `ncm`/`cClassTrib` ainda são ignoradas (reservadas para alíquotas por produto).
-
-| Período | Presumido / Real | Simples híbrido | Simples | ICMS (fator) |
-|---|---|---|---|---|
-| até 2026 | PIS 0,65% + Cofins 3% (Presumido, cumulativo); PIS 1,65% + Cofins 7,6% (Real, não cumulativo) | — | — | × 1 |
-| 2026 | + CBS 0,9% e IBS 0,1% **só destaque** (não custam) | — | — | × 1 |
-| 2027–2028 | CBS 8,7%* + IBS 0,1% | igual | — | × 1 |
-| 2029–2032 | CBS 8,8%* + IBS 1,77 / 3,54 / 5,31 / 7,08%* | igual | — | × 0,9 / 0,8 / 0,7 / 0,6 |
-| 2033 em diante | CBS 8,8%* + IBS 17,7%* | igual | — | × 0 |
-
-\* **Estimativa**: a alíquota de referência ainda não foi fixada (out/2026). Os valores precisam
-ser revisados por um contador e atualizados quando o Senado/Comitê Gestor publicar as alíquotas.
-
-**Como atualizar uma alíquota** — nunca edite a linha que já está em vigor no passado. Encerre-a
-(`vigenciaFim`) e acrescente uma nova linha com outra `chave`, em `prisma/seed/aliquotas.js`
-(fonte das linhas do sistema, gravadas por *upsert* pela `chave`) ou direto no Prisma Studio.
-O seed roda em todo `start:prod` e pode ser rodado à mão com `npm run seed:aliquotas`. A leitura
-tem cache de 10 minutos. A API `GET /api/tributos/aliquotas?ano=` mostra as linhas que valem para
-o usuário.
+As alíquotas vêm da entidade `BusinessRule` (tela *Regras*). O custo do produto é informado pelo
+vendedor (tela *Produtos*, por SKU).
 
 **Saúde do anúncio** (`computeHealth`) — avaliada em ordem, exibindo o primeiro estado aplicável:
 
@@ -493,8 +451,7 @@ documentação interativa (**Swagger UI**) fica em **`/api/docs`** e a especific
 | GET | `/api/anuncios` | Lista de anúncios (`search`, `sort`, `dir`, `filter`, `page`) |
 | GET | `/api/produtos` | Produtos por SKU (custo, medidas, frete cobrado × real) |
 | POST | `/api/produtos/:sku/custo` · `/api/produtos/:sku/medidas` | Define custo / medidas do SKU |
-| GET/PUT | `/api/regras` | Regras de negócio (alíquotas, `regime`, `ufOrigem`, `creditoCompra`; campos novos ausentes no PUT são mantidos) |
-| GET | `/api/tributos/aliquotas?ano=` | Alíquotas aplicadas ao usuário (regime, data, linhas por tributo) |
+| GET/PUT | `/api/regras` | Regras de negócio (alíquotas) |
 | GET | `/api/frete/estimar` | Calculadora de frete por cubagem |
 | GET/PUT | `/api/config` · `/api/config/cep` | CEP e última sincronização |
 | POST/GET | `/api/sync` · `/api/sync/status` | Sincronização e progresso |
@@ -589,10 +546,9 @@ DATABASE_URL="file:./dev.db"
 ```bash
 npx prisma migrate deploy
 npx prisma generate
-npm run seed:aliquotas
 ```
 
-Isso cria o `dev.db`, o cliente do Prisma e as alíquotas tributárias (PIS/Cofins/CBS/IBS).
+Isso cria o `dev.db` (vazio) e o cliente do Prisma.
 
 ### 15.5. Iniciar a aplicação
 
@@ -734,9 +690,7 @@ publicado (ex.: `https://<nome>.up.railway.app`) — é ele que monta os botões
 | Comando | Ação |
 |---|---|
 | `npm start` | Inicia o servidor (`node src/server.js`) |
-| `npm run start:prod` | Produção: aplica as migrações (`prisma migrate deploy`), grava as alíquotas (`seed:aliquotas`) e inicia o servidor |
-| `npm run seed:aliquotas` | Grava/atualiza as linhas de `AliquotaTributaria` a partir de `prisma/seed/aliquotas.js` |
-| `npm test` | Testes automatizados (`node --test`) |
+| `npm run start:prod` | Produção: aplica as migrações (`prisma migrate deploy`) e inicia o servidor |
 | `npm run dev` | Inicia com *watch* (reinício automático ao salvar) |
 | `postinstall` | Automático após `npm install`: gera o Prisma Client |
 | `npm run prisma:migrate` | Cria/aplica migrações em desenvolvimento |

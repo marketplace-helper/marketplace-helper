@@ -1,6 +1,6 @@
 import prisma from "../config/prisma.js";
-import { calcularCustoProduto } from "./calcService.js";
-import { criarContextoTributario } from "./tributos/contexto.js";
+import { getBusinessRules } from "./rulesService.js";
+import { computeProfit } from "./calcService.js";
 import { avaliaDivergencia } from "./freteTable.js";
 
 export const PAGE_SIZE = 50;
@@ -104,7 +104,7 @@ export function buildItemWhere(userId, search) {
   return where;
 }
 
-export async function listItems({ userId, page = 1, search = "", sort = "", dir = "", filter = "", ano = null } = {}) {
+export async function listItems({ userId, page = 1, search = "", sort = "", dir = "", filter = "" } = {}) {
   const baseWhere = buildItemWhere(userId, search);
   const activeFilter = FILTERS[filter] || null;
   const where = activeFilter && activeFilter.where
@@ -113,7 +113,7 @@ export async function listItems({ userId, page = 1, search = "", sort = "", dir 
 
   const currentPage = Math.max(1, Number(page) || 1);
   const direction = dir === "asc" ? "asc" : "desc";
-  const ctx = await criarContextoTributario(userId, { ano });
+  const rules = await getBusinessRules(userId);
 
   const dbField = SORTABLE[sort];
   const computedField = COMPUTED_SORT[sort];
@@ -124,7 +124,7 @@ export async function listItems({ userId, page = 1, search = "", sort = "", dir 
 
   if (needsAll) {
     const all = await prisma.item.findMany({ where });
-    let withCalc = all.map((it) => ({ ...it, _calc: calcularCustoProduto(it, ctx) }));
+    let withCalc = all.map((it) => ({ ...it, _calc: computeProfit(it, rules) }));
     if (activeFilter && activeFilter.computed) {
       withCalc = withCalc.filter((it) => activeFilter.test(it, it._calc));
     }
@@ -148,7 +148,7 @@ export async function listItems({ userId, page = 1, search = "", sort = "", dir 
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     });
-    items = rows.map((it) => ({ ...it, _calc: calcularCustoProduto(it, ctx) }));
+    items = rows.map((it) => ({ ...it, _calc: computeProfit(it, rules) }));
   }
 
   return {
@@ -162,7 +162,5 @@ export async function listItems({ userId, page = 1, search = "", sort = "", dir 
     dir: direction,
     filter: activeFilter ? filter : "",
     filterLabel: activeFilter ? activeFilter.label : "",
-    ano: ctx.ano,
-    regime: ctx.regime,
   };
 }

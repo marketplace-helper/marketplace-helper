@@ -1,6 +1,5 @@
 import prisma from "../config/prisma.js";
-import { calcularCustoProduto } from "./calcService.js";
-import { criarContextoTributario } from "./tributos/contexto.js";
+import { getBusinessRules } from "./rulesService.js";
 import { getListingFee, apiGet } from "./mlApi.js";
 
 const API = "https://api.mercadolibre.com";
@@ -74,23 +73,22 @@ export async function estimateFreight(userId, categoryName, title, price) {
   return { valor: null, base: "indisponivel", amostra: 0 };
 }
 
-// Resultado de um tipo de anúncio (Clássico/Premium) com o mesmo cálculo das
-// outras telas (calcularCustoProduto + contexto tributário do usuário).
-function computeType(base, custo, comissao, frete, ctx) {
-  const c = comissao || 0;
+function computeType(base, custo, comissao, frete, rules) {
+  const pct =
+    ((rules.icms || 0) + (rules.ipi || 0) + (rules.difal || 0) + (rules.custoOperacional || 0)) / 100;
+  const impostos = base * pct;
   const f = frete || 0;
-  const calc = calcularCustoProduto({ precoPor: base, custoProduto: custo, comissao: c, frete: f }, ctx);
-  // Sem preço o cálculo devolve lucro nulo; aqui mostramos o prejuízo (custos sem receita).
-  const lucro = calc.lucro ?? -(custo + c + f + calc.impostos);
-  return { comissao: c, frete: f, impostos: calc.impostos, tributos: calc.tributos, lucro, margem: calc.margem };
+  const c = comissao || 0;
+  const lucro = base - custo - c - f - impostos;
+  const margem = base > 0 ? (lucro / base) * 100 : null;
+  return { comissao: c, frete: f, impostos, lucro, margem };
 }
 
 // Simula o anúncio no Clássico e no Premium
-export async function simulate(userId, { title, preco, custo, freteManual, ano = null }) {
+export async function simulate(userId, { title, preco, custo, freteManual }) {
   const base = Number(String(preco).replace(",", ".")) || 0;
   const custoNum = Number(String(custo).replace(",", ".")) || 0;
-  const ctx = await criarContextoTributario(userId, { ano });
-  const rules = ctx.rules;
+  const rules = await getBusinessRules(userId);
 
   const categoria = await predictCategory(userId, title);
   const categoryId = categoria?.categoryId || null;
@@ -116,14 +114,12 @@ export async function simulate(userId, { title, preco, custo, freteManual, ano =
     categoria,
     freteInfo,
     rules,
-    ano: ctx.ano,
-    regime: ctx.regime,
     classico: {
-      ...computeType(base, custoNum, feeClassico?.amount || 0, frete, ctx),
+      ...computeType(base, custoNum, feeClassico?.amount || 0, frete, rules),
       comissaoPct: feeClassico?.pct ?? null,
     },
     premium: {
-      ...computeType(base, custoNum, feePremium?.amount || 0, frete, ctx),
+      ...computeType(base, custoNum, feePremium?.amount || 0, frete, rules),
       comissaoPct: feePremium?.pct ?? null,
     },
   };

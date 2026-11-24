@@ -45,16 +45,6 @@
           </div>
           <small class="text-muted">Deixe vazio para estimar pelos seus anúncios.</small>
         </div>
-        <div class="col-12 col-md-4">
-          <label class="form-label">Alíquotas de</label>
-          <select name="ano" class="form-select">
-            <option value="">Hoje</option>
-            <% ANOS_SIMULAVEIS.forEach(function (a) { %>
-              <option value="<%= a %>" <%= String(values.ano || '') === String(a) ? 'selected' : '' %>><%= a %></option>
-            <% }); %>
-          </select>
-          <small class="text-muted">Simule a margem com a reforma tributária (CBS/IBS).</small>
-        </div>
         <div class="col-12">
           <button type="submit" class="btn btn-primary"><i class="bi bi-play-fill"></i> Simular</button>
         </div>
@@ -113,17 +103,6 @@
                   </tr>
                   <tr class="text-danger"><td>(−) Frete</td><td class="text-end">− R$ <%= d.frete.toFixed(2) %></td></tr>
                   <tr class="text-danger"><td>(−) Impostos</td><td class="text-end">− R$ <%= d.impostos.toFixed(2) %></td></tr>
-                  <% (d.tributos ? d.tributos.linhas : []).filter(function (l) { return l.devido > 0 || l.somenteDestaque; }).forEach(function (l) { %>
-                    <tr class="small text-muted">
-                      <td class="ps-4"><%= l.tributo === 'CUSTO_OPERACIONAL' ? 'Custo operacional' : l.tributo %>
-                        <%= Number(l.aliquota.toFixed(2)) %>%
-                        <% if (l.somenteDestaque) { %><span class="badge text-bg-light">só destaque</span><% } %>
-                        <% if (l.estimativa) { %><span class="badge text-bg-warning">estimativa</span><% } %>
-                        <% if (l.credito > 0) { %><span class="ms-1">(crédito R$ <%= l.credito.toFixed(2) %>)</span><% } %>
-                      </td>
-                      <td class="text-end">R$ <%= l.devido.toFixed(2) %></td>
-                    </tr>
-                  <% }); %>
                   <tr class="border-top">
                     <td class="fw-semibold">= Lucro líquido</td>
                     <td class="text-end fw-bold <%= d.lucro >= 0 ? 'text-success' : 'text-danger' %>">R$ <%= d.lucro.toFixed(2) %></td>
@@ -148,16 +127,10 @@
       %>
     </div>
 
-    <% if (resultado.ano) { %>
-      <div class="alert alert-warning py-2 small mt-3">
-        <i class="bi bi-exclamation-triangle"></i>
-        Simulação de <%= resultado.ano %> com alíquotas estimadas — confira com seu contador.
-      </div>
-    <% } %>
     <p class="text-muted small mt-3">
       <i class="bi bi-info-circle"></i>
-      Impostos conforme a tela <a href="/regras">Regras</a>: regime <%= REGIME_LABEL[resultado.regime] %>,
-      ICMS <%= resultado.rules.icms %>% + IPI <%= resultado.rules.ipi %>% + DIFAL <%= resultado.rules.difal %>% + Custo Op. <%= resultado.rules.custoOperacional %>%.
+      Impostos aplicados conforme a tela <a href="/regras">Regras</a>
+      (ICMS <%= resultado.rules.icms %>% + IPI <%= resultado.rules.ipi %>% + DIFAL <%= resultado.rules.difal %>% + Custo Op. <%= resultado.rules.custoOperacional %>%).
     </p>
   <% } %>
 </div>

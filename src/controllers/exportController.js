@@ -10,7 +10,7 @@ async function sendWorkbook(res, wb, filename) {
 }
 
 export async function exportExcel(req, res) {
-  const wb = await buildItemsWorkbook(req.user.id, req.query.search || "", { ano: req.query.ano });
+  const wb = await buildItemsWorkbook(req.user.id, req.query.search || "");
   const date = new Date().toISOString().slice(0, 10);
   await sendWorkbook(res, wb, `anuncios_${date}.xlsx`);
 }
