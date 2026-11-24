@@ -17,6 +17,7 @@ export const openapiSpec = {
   tags: [
     { name: "Autenticação" },
     { name: "Conta" },
+    { name: "Mercado Livre" },
     { name: "Dados" },
     { name: "Produtos" },
     { name: "Frete" },
@@ -83,6 +84,34 @@ export const openapiSpec = {
       get: {
         tags: ["Conta"], summary: "Dados do usuário autenticado e status da conexão com o Mercado Livre", security: bearer,
         responses: { 200: json({ user: { id: 1, email: "vendedor@loja.com", storeName: "Minha Loja", whatsapp: null }, mercadoLivre: { authenticated: true } }), 401: { description: "Não autenticado", ...json({ error: "Token inválido ou expirado." }) } },
+      },
+    },
+    "/ml/oauth/start": {
+      post: {
+        tags: ["Mercado Livre"], summary: "Inicia a conexão OAuth com o Mercado Livre (mobile)", security: bearer,
+        description: "Retorna a URL de autorização. Abra-a no navegador do aparelho; ao final o app é reaberto em marketplacehelper://ml/oauth?status=ok|erro&mensagem=...",
+        responses: { 200: json({ url: "https://auth.mercadolivre.com.br/authorization?response_type=code&..." }) },
+      },
+    },
+    "/ml/oauth/callback": {
+      get: {
+        tags: ["Mercado Livre"], summary: "Retorno do Mercado Livre após a autorização (uso interno)", security: [],
+        parameters: [
+          { name: "code", in: "query", schema: { type: "string" } },
+          { name: "state", in: "query", schema: { type: "string" } },
+          { name: "error", in: "query", schema: { type: "string" } },
+        ],
+        responses: { 302: { description: "Redireciona para /auth (web) ou para o deep link do app (mobile)" } },
+      },
+    },
+    "/ml/connection": {
+      get: {
+        tags: ["Mercado Livre"], summary: "Status da conexão com o Mercado Livre", security: bearer,
+        responses: { 200: json({ authenticated: true, status: "active", reconnectRequired: false, mlUserId: "123456", expiresAt: "2026-11-23T18:00:00.000Z" }) },
+      },
+      delete: {
+        tags: ["Mercado Livre"], summary: "Desconecta a conta do Mercado Livre", security: bearer,
+        responses: { 204: { description: "Desconectado" } },
       },
     },
     "/dashboard": {

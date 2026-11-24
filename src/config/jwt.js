@@ -9,9 +9,12 @@ export function signToken(userId) {
 }
 
 // Retorna o payload decodificado ou null se o token for inválido/expirado.
+// Tokens com audiência (ex.: state do OAuth do ML) não são tokens de login.
 export function verifyToken(token) {
   try {
-    return jwt.verify(token, config.jwtSecret);
+    const payload = jwt.verify(token, config.jwtSecret);
+    if (payload.aud !== undefined) return null;
+    return payload;
   } catch {
     return null;
   }

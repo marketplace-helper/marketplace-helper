@@ -1,20 +1,16 @@
 import prisma from "../config/prisma.js";
 import { getBusinessRules } from "./rulesService.js";
-import { getListingFee } from "./mlApi.js";
-import { getValidToken } from "./mlAuth.js";
+import { getListingFee, apiGet } from "./mlApi.js";
 
 const API = "https://api.mercadolibre.com";
 
 // Prediz a categoria a partir do título (domain_discovery)
 export async function predictCategory(userId, title) {
   if (!title || !title.trim()) return null;
-  const token = await getValidToken(userId);
-  const res = await fetch(
-    `${API}/sites/MLB/domain_discovery/search?q=${encodeURIComponent(title.trim())}`,
-    { headers: { Authorization: `Bearer ${token}` } }
+  const data = await apiGet(
+    userId,
+    `${API}/sites/MLB/domain_discovery/search?q=${encodeURIComponent(title.trim())}`
   );
-  if (!res.ok) return null;
-  const data = await res.json();
   const first = Array.isArray(data) ? data[0] : null;
   if (!first) return null;
   return {
