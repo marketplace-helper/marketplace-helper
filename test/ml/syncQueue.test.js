@@ -70,3 +70,18 @@ test("lote é limitado a 200 MLBs por usuário; o excedente é descartado com av
   assert.equal(calls[0].mlbs.length, 200);
   assert.ok(warn.mock.callCount() >= 1);
 });
+
+test("sync disparado pela fila é marcado como automático", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const opcoes = [];
+  const queue = createSyncQueue({
+    runSync: async (userId, mlbs, opts) => { opcoes.push(opts); },
+    getSyncState: () => ({ running: false }),
+    delayMs: 10,
+    setTimeout: globalThis.setTimeout,
+    clearTimeout: globalThis.clearTimeout,
+  });
+  queue.enqueue(1, ["MLB1"]);
+  t.mock.timers.tick(10);
+  assert.deepEqual(opcoes, [{ origem: "auto" }]);
+});

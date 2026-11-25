@@ -132,6 +132,7 @@ export async function saveZip(req, res) {
 export async function startSync(req, res) {
   const mlbs = Array.isArray(req.body?.mlbs) ? req.body.mlbs : null;
   const state = await runSync(req.user.id, mlbs);
+  if (state.negado) return res.status(429).json({ error: state.negado });
   res.json({ ok: true, state });
 }
 

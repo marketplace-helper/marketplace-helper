@@ -11,7 +11,8 @@ async function syncAllUsers() {
   console.log(`[CRON] Sincronizando ${userIds.length} conta(s)...`);
   for (const userId of userIds) {
     try {
-      await runSync(userId); // roda em background (não bloqueia)
+      const r = await runSync(userId, null, { origem: "auto" }); // roda em background (não bloqueia)
+      if (r?.negado && r.negado !== "auto") console.log(`[CRON] usuário ${userId}: ${r.negado}`);
     } catch (e) {
       console.error(`[CRON] erro no usuário ${userId}:`, e.message);
     }

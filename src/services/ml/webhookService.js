@@ -3,11 +3,13 @@ import { createSyncQueue } from "./syncQueue.js";
 import { getOrderItemIds as getOrderItemIdsDefault } from "../mlApi.js";
 import { runSync, getSyncState } from "../syncService.js";
 import { config } from "../../config/env.js";
+import prisma from "../../config/prisma.js";
+import { situacaoDoPlano } from "../acesso/plano.js";
 
 const TOPICOS = new Set(["items", "orders_v2"]);
 
 // Processa uma notificação do ML. Nunca lança: devolve "enfileirado" ou "ignorado".
-export function createWebhookService({ appId, store, queue, getOrderItemIds }) {
+export function createWebhookService({ appId, store, queue, getOrderItemIds, podeAutoSync = async () => true }) {
   async function handle(body) {
     try {
       if (!body || typeof body !== "object") return "ignorado";
@@ -18,6 +20,8 @@ export function createWebhookService({ appId, store, queue, getOrderItemIds }) {
 
       const userId = await store.findUserIdByMlUserId(String(body.user_id));
       if (userId == null) return "ignorado";
+      // Contas em modo teste (ou bloqueadas) não recebem atualização automática.
+      if (!(await podeAutoSync(userId))) return "ignorado";
 
       let mlbs;
       if (body.topic === "items") {
@@ -45,4 +49,6 @@ export default createWebhookService({
   store: connectionStore,
   queue: createSyncQueue({ runSync, getSyncState }),
   getOrderItemIds: getOrderItemIdsDefault,
+  podeAutoSync: async (userId) =>
+    situacaoDoPlano(await prisma.user.findUnique({ where: { id: userId } })).podeAutoSync,
 });
