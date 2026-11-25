@@ -113,11 +113,9 @@ export async function runSync(userId, mlbs = null, { origem = "manual" } = {}) {
     situacao, origem, settings, agora: new Date(), limites: config.teste, timezone: config.timezone,
   });
   if (!decisao.permitido) return { ...idleState(), negado: decisao.motivo };
-  // Pode ter começado outro sync enquanto lia o banco.
+  // Pode ter começado outro sync enquanto lia o banco. Daqui até syncStates.set não há
+  // await, então um segundo pedido simultâneo sempre encontra este como "rodando".
   if (syncStates.get(userId)?.running) return syncStates.get(userId);
-  if (decisao.dadosSettings) {
-    await prisma.settings.update({ where: { userId }, data: decisao.dadosSettings });
-  }
 
   const selection = Array.isArray(mlbs) && mlbs.length > 0 ? mlbs : null;
 
@@ -130,6 +128,13 @@ export async function runSync(userId, mlbs = null, { origem = "manual" } = {}) {
     startedAt: new Date(),
   };
   syncStates.set(userId, state);
+
+  if (decisao.dadosSettings) {
+    // Falha ao gravar o contador não pode deixar o estado preso em "rodando".
+    await prisma.settings
+      .update({ where: { userId }, data: decisao.dadosSettings })
+      .catch((e) => console.error("[SYNC] contador do modo teste não gravado:", e.message));
+  }
 
   doSync(userId, selection, { situacao, max: config.teste.maxAnuncios }).catch((e) => {
     console.error("[SYNC] erro:", e);
