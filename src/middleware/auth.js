@@ -1,5 +1,6 @@
 import { getUserById } from "../services/accountService.js";
 import prisma from "../config/prisma.js";
+import { situacaoDoPlano, MSG_BLOQUEADO } from "../services/acesso/plano.js";
 
 // Exige login. Carrega o usuario em req.user e res.locals.user (para as views).
 export async function requireAuth(req, res, next) {
@@ -15,8 +16,15 @@ export async function requireAuth(req, res, next) {
     req.session = null;
     return res.redirect("/login?error=" + encodeURIComponent("Confirme seu e-mail antes de entrar."));
   }
+  const situacao = situacaoDoPlano(user);
+  if (!situacao.podeEntrar) {
+    req.session = null;
+    return res.redirect("/login?error=" + encodeURIComponent(MSG_BLOQUEADO));
+  }
   req.user = user;
+  req.situacaoPlano = situacao;
   res.locals.user = user;
+  res.locals.situacaoPlano = situacao;
 
   // Última sincronização (para a navbar)
   const s = await prisma.settings.findUnique({

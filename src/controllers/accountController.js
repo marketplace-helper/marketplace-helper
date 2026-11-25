@@ -19,6 +19,7 @@ import {
 } from "../services/emailAuthService.js";
 import { getAuthStatus } from "../services/mlAuth.js";
 import { getMlProfile } from "../services/mlApi.js";
+import { situacaoDoPlano, MSG_BLOQUEADO } from "../services/acesso/plano.js";
 
 export function showLogin(req, res) {
   if (req.session?.userId) return res.redirect("/");
@@ -44,6 +45,9 @@ export async function login(req, res) {
       message: null,
       unverifiedEmail: user.email,
     });
+  }
+  if (!situacaoDoPlano(user).podeEntrar) {
+    return res.status(403).render("login", { title: "Entrar", error: MSG_BLOQUEADO, message: null, unverifiedEmail: null });
   }
   req.session.userId = user.id;
   res.redirect("/");

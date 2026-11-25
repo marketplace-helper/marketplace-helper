@@ -7,6 +7,8 @@
 
 export const PLANOS = { TESTE: "TESTE", COMPLETO: "COMPLETO", BLOQUEADO: "BLOQUEADO" };
 
+export const MSG_BLOQUEADO = "Sua conta não foi liberada. Se acha que é um engano, fale com a gente.";
+
 const DIA_MS = 24 * 60 * 60 * 1000;
 
 // Inteiro > 0 vindo da env; qualquer outra coisa cai no padrão.

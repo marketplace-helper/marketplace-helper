@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import prisma from "../config/prisma.js";
 import { config } from "../config/env.js";
 import { sendTemplateEmail, TEMPLATES } from "./mailService.js";
+import { dadosDeVerificacao } from "./acesso/plano.js";
 
 // Confirmação de cadastro e recuperação de senha por link enviado por e-mail.
 // O token puro só existe no link; no banco fica o hash SHA-256 (se o banco vazar,
@@ -101,14 +102,30 @@ export function sendVerificationEmail(user) {
   return sendTokenEmail(user, "VERIFY");
 }
 
+// Chamado depois que um e-mail é confirmado pela primeira vez (ex.: avisar os admins).
+let aoConfirmarEmail = async () => {};
+export function definirAoConfirmarEmail(fn) {
+  aoConfirmarEmail = fn;
+}
+
+// Marca o e-mail como confirmado e, se for o primeiro, começa o período de teste.
+async function marcarConfirmado(userId, extra = {}) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const primeiraVez = !user.emailVerifiedAt;
+  const atualizado = await prisma.user.update({
+    where: { id: userId },
+    data: { ...extra, ...dadosDeVerificacao(user, new Date(), config.teste.dias) },
+  });
+  if (primeiraVez) {
+    aoConfirmarEmail(atualizado).catch((e) => console.error("[verify] pós-confirmação falhou:", e.message));
+  }
+}
+
 /** Confirma o e-mail. Retorna true se o token era válido. */
 export async function verifyEmail(token) {
   const record = await findValidToken(token, "VERIFY");
   if (!record || !(await consumeToken(record))) return false;
-  await prisma.user.update({
-    where: { id: record.userId },
-    data: { emailVerifiedAt: new Date() },
-  });
+  await marcarConfirmado(record.userId);
   return true;
 }
 
@@ -128,11 +145,8 @@ export async function resetPassword(token, newPassword) {
   const record = await findValidToken(token, "RESET");
   if (!record || !(await consumeToken(record))) return false;
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  await prisma.user.update({
-    where: { id: record.userId },
-    // Quem recebeu o link de reset provou que controla o e-mail.
-    data: { passwordHash, emailVerifiedAt: new Date() },
-  });
+  // Quem recebeu o link de reset provou que controla o e-mail.
+  await marcarConfirmado(record.userId, { passwordHash });
   return true;
 }
 
