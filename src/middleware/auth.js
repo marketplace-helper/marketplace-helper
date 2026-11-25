@@ -1,5 +1,6 @@
 import { getUserById } from "../services/accountService.js";
 import prisma from "../config/prisma.js";
+import { config } from "../config/env.js";
 import { situacaoDoPlano, MSG_BLOQUEADO } from "../services/acesso/plano.js";
 
 // Exige login. Carrega o usuario em req.user e res.locals.user (para as views).
@@ -25,6 +26,7 @@ export async function requireAuth(req, res, next) {
   req.situacaoPlano = situacao;
   res.locals.user = user;
   res.locals.situacaoPlano = situacao;
+  res.locals.limitesTeste = config.teste;
 
   // Última sincronização (para a navbar)
   const s = await prisma.settings.findUnique({

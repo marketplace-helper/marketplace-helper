@@ -87,3 +87,27 @@ test("token inválido não mostra nem aplica nada", async () => {
   assert.equal(await svc.verAcao(undefined), null);
   assert.deepEqual(await svc.aplicarAcao("nao-existe"), { ok: false });
 });
+
+const usuariosTeste = () => [
+  { id: 1, email: "a1@x.com", storeName: "Vencido", plano: "TESTE", testeAte: new Date("2026-11-01T00:00:00Z"), testeAvisoEm: null },
+  { id: 2, email: "a2@x.com", storeName: "Já avisado", plano: "TESTE", testeAte: new Date("2026-11-01T00:00:00Z"), testeAvisoEm: new Date("2026-11-02T00:00:00Z") },
+  { id: 3, email: "a3@x.com", storeName: "No prazo", plano: "TESTE", testeAte: new Date("2026-12-30T00:00:00Z"), testeAvisoEm: null },
+];
+
+test("avisa uma vez só os testes vencidos ainda não avisados", async () => {
+  const { svc, db, enviados } = setup({ users: usuariosTeste() });
+  const agora = new Date("2026-11-25T12:00:00Z");
+  assert.equal(await svc.avisarTestesExpirados(agora), 1);
+  assert.equal(enviados.length, 1);
+  assert.equal(enviados[0].variables.MOTIVO, "Período de teste terminou");
+  assert.equal(enviados[0].variables.STORE_NAME, "Vencido");
+  assert.ok(db.users.get(1).testeAvisoEm instanceof Date);
+  assert.equal(db.users.get(3).testeAvisoEm, null);
+  assert.equal(await svc.avisarTestesExpirados(agora), 0);
+});
+
+test("sem ADMIN_EMAILS não marca como avisado (avisa quando a env for configurada)", async () => {
+  const { svc, db } = setup({ adminEmails: [], users: usuariosTeste() });
+  assert.equal(await svc.avisarTestesExpirados(new Date("2026-11-25T12:00:00Z")), 0);
+  assert.equal(db.users.get(1).testeAvisoEm, null);
+});

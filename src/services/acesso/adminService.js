@@ -72,7 +72,26 @@ export function createAdminService({ prisma, tokens, sendTemplateEmail, config }
     return { ok: true, acao: achada.acao, user };
   }
 
-  return { avisarAdmins, verAcao, aplicarAcao };
+  // Contas cujo teste terminou e que os admins ainda não viram. Retorna quantas foram avisadas.
+  async function avisarTestesExpirados(agora = new Date()) {
+    if (!config.adminEmails?.length) return 0;
+    const vencidos = await prisma.user.findMany({
+      where: { plano: PLANOS.TESTE, testeAte: { lt: agora }, testeAvisoEm: null },
+    });
+    let avisados = 0;
+    for (const user of vencidos) {
+      try {
+        await avisarAdmins(user, "Período de teste terminou");
+        await prisma.user.update({ where: { id: user.id }, data: { testeAvisoEm: agora } });
+        avisados++;
+      } catch (e) {
+        console.error(`[admin] aviso de fim de teste do usuário ${user.id} falhou:`, e.message);
+      }
+    }
+    return avisados;
+  }
+
+  return { avisarAdmins, verAcao, aplicarAcao, avisarTestesExpirados };
 }
 
 export default createAdminService({
