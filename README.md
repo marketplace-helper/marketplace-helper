@@ -194,7 +194,7 @@ User 1───1 MlConnection       (tokens OAuth cifrados e status da conexão)
 
 | Entidade | Campos principais | Observações |
 |---|---|---|
-| **User** | `email` (único), `storeName`, `whatsapp`, `passwordHash` | Senha com hash bcrypt |
+| **User** | `email` (único), `storeName`, `whatsapp`, `passwordHash`, `emailVerifiedAt`, `plano`, `testeAte`, `testeAvisoEm` | Senha com hash bcrypt; `plano`: `TESTE` / `COMPLETO` / `BLOQUEADO` (ver [Contas e modo teste](#61-contas-modo-teste-e-liberação)) |
 | **MlConnection** | `mlUserId`, `accessToken`, `refreshToken`, `expiresAt`, `status`, `lastRefreshAt`, `lastError` | *Tokens* **cifrados** (AES-256-GCM); `status`: `active` / `reconnect_required` / `disconnected` |
 | **Settings** | `zipCode`, `lastSyncAt` | CEP usado no cálculo de frete |
 | **BusinessRule** | `icms`, `ipi`, `difal`, `custoOperacional` | Percentuais (%) |
@@ -242,6 +242,24 @@ Três níveis de autenticação coexistem:
 
 A recuperação de senha por e-mail existe como **placeholder** (interface pronta, envio de e-mail
 ainda não configurado).
+
+### 6.1. Contas, modo teste e liberação
+
+Como o cadastro é aberto, toda conta nova entra em **modo teste** e só ganha uso completo quando um
+administrador libera (`src/services/acesso/`).
+
+| Plano | Entra? | Sincronização |
+|---|---|---|
+| `TESTE` (no prazo) | Sim | Só manual, até `TESTE_SYNCS_DIA` por dia; no máximo `TESTE_MAX_ANUNCIOS` anúncios; sem o agendamento 00:00/12:00 e sem webhooks |
+| `TESTE` (vencido) | Sim, vê os dados | Pausada |
+| `COMPLETO` | Sim | Sem limites |
+| `BLOQUEADO` | Não | — |
+
+- O teste começa quando a pessoa **confirma o e-mail** e dura `TESTE_DIAS` dias. A tela mostra uma faixa com os limites e a data de fim.
+- Ao confirmar, os endereços de `ADMIN_EMAILS` recebem o e-mail **`admin-conta`** (template do Resend) com os links **Liberar uso completo** e **Bloquear**. O link abre uma página de confirmação (`GET /admin/contas/acao`); a ação só acontece no botão (`POST`), para que antivírus e leitores de e-mail que abrem links não aprovem ninguém. Cada link vale uma vez, por 7 dias.
+- Quem é liberado recebe o e-mail **`conta-liberada`**. Quando um teste vence, os admins recebem de novo o `admin-conta` (motivo "Período de teste terminou"), uma vez, no agendamento das 00:00/12:00.
+- Limites de tentativa por IP: cadastro, reenvio de confirmação e recuperação de senha somam **5 por hora**; login, **20 a cada 15 minutos** (web e API).
+- Na migração, contas que já tinham e-mail confirmado viraram `COMPLETO`. Para mudar um plano à mão: Prisma Studio, campo `plano`.
 
 ---
 
@@ -413,7 +431,7 @@ hospedada em qualquer serviço (Vercel, Netlify, GitHub Pages, etc.) sem o Node.
 
 ## 13. Mapa de rotas
 
-**Públicas:** `GET/POST /login` · `GET/POST /register` · `GET/POST /recuperar-senha` · `GET/POST /logout`
+**Públicas:** `GET/POST /login` · `GET/POST /register` · `GET/POST /recuperar-senha` · `GET/POST /logout` · `GET/POST /admin/contas/acao` (links dos e-mails aos administradores; o token é a autorização)
 
 **Protegidas (exigem login):**
 
@@ -481,6 +499,10 @@ Arquivo `.env` (modelo em `.env.example`):
 | `ML_APP_SECRET` | Secret do app ML |
 | `ML_REDIRECT_URI` | Redirect URI do OAuth (padrão `${APP_URL}/api/ml/oauth/callback`; produção: `https://app.marketplacehelper.com.br/api/ml/oauth/callback`) |
 | `MOBILE_OAUTH_REDIRECT` | Deep link de retorno do app mobile (padrão `marketplacehelper://ml/oauth`) |
+| `ADMIN_EMAILS` | E-mails dos administradores que recebem os pedidos de liberação de contas, separados por vírgula |
+| `TESTE_MAX_ANUNCIOS` | Máximo de anúncios sincronizados no modo teste (padrão `50`) |
+| `TESTE_SYNCS_DIA` | Atualizações manuais por dia no modo teste (padrão `3`) |
+| `TESTE_DIAS` | Duração do modo teste em dias (padrão `14`) |
 | `TZ` | Fuso do agendamento (padrão **America/Sao_Paulo**) |
 
 **Painel do app no Mercado Livre** (developers.mercadolivre.com.br): cadastrar a mesma Redirect URI
