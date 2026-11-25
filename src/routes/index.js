@@ -35,6 +35,7 @@ import { showSimulator, runSimulator } from "../controllers/simulatorController.
 import { showProducts, saveProductCost, saveProductDims, pesoDoSku} from "../controllers/productController.js";
 import { showFrete } from "../controllers/freteController.js";
 import { showMedir } from "../controllers/medirController.js";
+import { showAcao, aplicarAcao } from "../controllers/adminController.js";
 
 const router = Router();
 
@@ -53,6 +54,10 @@ router.get("/confirmar-email", confirmEmail);
 router.get("/confirmar-novo-email", confirmAccountEmailChange);
 router.get("/logout", logout);
 router.post("/logout", logout);
+
+// Links enviados aos administradores (o token é a autorização).
+router.get("/admin/contas/acao", showAcao);
+router.post("/admin/contas/acao", aplicarAcao);
 
 // ===== Daqui pra baixo exige login =====
 router.use(requireAuth);

@@ -13,6 +13,9 @@ const TOKEN_TTL_MS = {
   VERIFY: 24 * 60 * 60 * 1000, // 24h
   RESET: 60 * 60 * 1000, // 1h
   EMAIL_CHANGE: 24 * 60 * 60 * 1000, // 24h
+  // Links dos e-mails aos administradores (liberar/bloquear uma conta).
+  ADMIN_LIBERAR: 7 * 24 * 60 * 60 * 1000, // 7 dias
+  ADMIN_BLOQUEAR: 7 * 24 * 60 * 60 * 1000,
 };
 
 const ROUTES = {
@@ -24,7 +27,7 @@ const ROUTES = {
 const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
 
 // Gera um novo token, invalidando os anteriores do mesmo tipo (só o link mais recente vale).
-async function issueToken(userId, type) {
+export async function issueToken(userId, type) {
   const token = crypto.randomBytes(32).toString("base64url");
   const now = new Date();
   const [, record] = await prisma.$transaction([
@@ -77,7 +80,7 @@ async function sendTokenEmail(user, type, to = user.email) {
 }
 
 // Retorna o registro do token se ele for válido (existe, do tipo certo, não usado, não expirado).
-async function findValidToken(token, type) {
+export async function findValidToken(token, type) {
   if (!token || typeof token !== "string") return null;
   const record = await prisma.authToken.findUnique({ where: { tokenHash: hashToken(token) } });
   if (!record || record.type !== type || record.usedAt || record.expiresAt < new Date()) {
@@ -88,7 +91,7 @@ async function findValidToken(token, type) {
 
 // Marca o token como usado de forma atômica: se duas requisições chegarem juntas,
 // só uma consegue (a outra vê count = 0).
-async function consumeToken(record) {
+export async function consumeToken(record) {
   const { count } = await prisma.authToken.updateMany({
     where: { id: record.id, usedAt: null },
     data: { usedAt: new Date() },

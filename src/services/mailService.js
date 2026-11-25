@@ -8,6 +8,9 @@ export const TEMPLATES = {
   VERIFY: "confirmar-email", // variáveis: STORE_NAME, ACTION_URL
   RESET: "redefinir-senha", // variáveis: STORE_NAME, ACTION_URL
   EMAIL_CHANGE: "confirmar-novo-email", // variáveis: STORE_NAME, ACTION_URL
+  // Para os administradores: STORE_NAME, EMAIL, WHATSAPP, MOTIVO, LIBERAR_URL, BLOQUEAR_URL
+  ADMIN_CONTA: "admin-conta",
+  CONTA_LIBERADA: "conta-liberada", // variáveis: STORE_NAME, ACTION_URL
 };
 
 const resend = config.resendApiKey ? new Resend(config.resendApiKey) : null;
