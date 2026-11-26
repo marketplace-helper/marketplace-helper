@@ -43,7 +43,7 @@ test("um e-mail para todos os admins com links de liberar e bloquear", async () 
   assert.deepEqual(m.to, ["a@x.com", "b@x.com"]);
   assert.equal(m.template, "admin-conta");
   assert.equal(m.variables.MOTIVO, "Nova conta em teste");
-  assert.equal(m.variables.EMAIL, "loja@x.com");
+  assert.equal(m.variables.CONTA_EMAIL, "loja@x.com");
   assert.ok(m.variables.LIBERAR_URL.startsWith("https://app.test/admin/contas/acao?token="));
   assert.notEqual(tokenDe(m.variables.LIBERAR_URL), tokenDe(m.variables.BLOQUEAR_URL));
 });

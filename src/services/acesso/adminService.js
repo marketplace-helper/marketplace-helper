@@ -26,7 +26,7 @@ export function createAdminService({ prisma, tokens, sendTemplateEmail, config }
       template: TEMPLATES.ADMIN_CONTA,
       variables: {
         STORE_NAME: user.storeName,
-        EMAIL: user.email,
+        CONTA_EMAIL: user.email,
         WHATSAPP: user.whatsapp || "—",
         MOTIVO: motivo,
         LIBERAR_URL: urlDaAcao(liberar.token),
