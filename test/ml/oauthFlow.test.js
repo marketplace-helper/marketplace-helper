@@ -142,3 +142,49 @@ test("tentativa criada para o usuário 7 com state assinado para o 8 falha", asy
   assert.deepEqual(r, { ok: false, client: "mobile", message: EXPIRED });
   assert.equal(client.exchangeCalls.length, 0);
 });
+
+function setupComLog() {
+  const linhas = [];
+  const nowFn = () => Date.now();
+  const flow = createOAuthFlow({
+    attempts: createFakeAttempts({ now: nowFn }), client: createFakeExchangeClient(), store: createFakeStore({ now: nowFn }),
+    now: nowFn, appId: "APP123", redirectUri: "https://x.test/cb", log: (m) => linhas.push(m),
+  });
+  return { flow, linhas };
+}
+
+test("log: callback web sem sessão diz o motivo e o host (cookie de outro domínio)", async () => {
+  const { flow, linhas } = setupComLog();
+  const state = stateOf(await flow.startAuthorization(7, "web"));
+  await flow.handleCallback({ code: "C", state, sessionUserId: undefined, host: "app.exemplo.com" });
+  const l = linhas.find((x) => x.includes("recusado"));
+  assert.match(l, /motivo=sem_sessao/);
+  assert.match(l, /usuario=7/);
+  assert.match(l, /host=app\.exemplo\.com/);
+  assert.ok(!l.includes(state), "não loga o state");
+});
+
+test("log: sessão de outro usuário, state inválido e tentativa já usada", async () => {
+  const { flow, linhas } = setupComLog();
+  const state = stateOf(await flow.startAuthorization(7, "web"));
+  await flow.handleCallback({ code: "C", state, sessionUserId: 8 });
+  await flow.handleCallback({ code: "C", state: "lixo" });
+  await flow.handleCallback({ code: "C", state, sessionUserId: 7 });
+  await flow.handleCallback({ code: "C", state, sessionUserId: 7 });
+  const motivos = linhas.filter((x) => x.includes("recusado")).map((x) => x.match(/motivo=(\S+)/)[1]);
+  assert.deepEqual(motivos, ["sessao_de_outro_usuario", "state_invalido", "tentativa_usada_ou_expirada"]);
+  assert.ok(linhas.some((x) => x.includes("conectado") && x.includes("usuario=7")));
+});
+
+test("log: erro devolvido pelo ML inclui error e error_description", async () => {
+  const { flow, linhas } = setupComLog();
+  const state = stateOf(await flow.startAuthorization(7, "web"));
+  await flow.handleCallback({ state, sessionUserId: 7, error: "invalid_scope", errorDescription: "bad scope" });
+  assert.match(linhas.find((x) => x.includes("recusado")), /motivo=erro_do_ml .*error=invalid_scope descricao="bad scope"/);
+});
+
+test("log: início registra usuário, cliente e redirect_uri", async () => {
+  const { flow, linhas } = setupComLog();
+  await flow.startAuthorization(7, "web", { host: "app.exemplo.com" });
+  assert.match(linhas[0], /início usuario=7 cliente=web host=app\.exemplo\.com redirect_uri=https:\/\/x\.test\/cb/);
+});
