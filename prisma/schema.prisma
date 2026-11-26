@@ -20,6 +20,13 @@ model User {
   // Novo e-mail aguardando confirmação (troca em "Minha conta"). O e-mail atual
   // continua valendo até o usuário clicar no link enviado para este endereço.
   pendingEmail    String?
+  // Plano da conta: "TESTE" (automático ao confirmar o e-mail, com limites),
+  // "COMPLETO" (liberado por um admin) ou "BLOQUEADO" (não entra).
+  plano        String    @default("TESTE")
+  // Fim do período de teste (definido quando o e-mail é confirmado).
+  testeAte     DateTime?
+  // Quando os admins foram avisados de que o teste terminou.
+  testeAvisoEm DateTime?
 
   mlConnection MlConnection?
   mlAttempts   MlOAuthAttempt[]
@@ -84,6 +91,9 @@ model Settings {
   userId     Int       @unique
   zipCode    String    @default("01001000")
   lastSyncAt DateTime?
+  // Atualizações manuais do dia (limite do modo teste). Dia em "AAAA-MM-DD" no fuso do app.
+  syncManualDia String?
+  syncManualQtd Int       @default(0)
   updatedAt  DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

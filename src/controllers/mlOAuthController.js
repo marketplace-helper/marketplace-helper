@@ -14,7 +14,7 @@ export function createMlOAuthController({
 } = {}) {
   // Web (sessão): inicia o fluxo e manda o navegador para o Mercado Livre.
   async function connect(req, res) {
-    res.redirect(await oauthFlow.startAuthorization(req.user.id, "web"));
+    res.redirect(await oauthFlow.startAuthorization(req.user.id, "web", { host: req.get?.("host") }));
   }
 
   async function disconnect(req, res) {
@@ -24,8 +24,10 @@ export function createMlOAuthController({
 
   // Pública: o Mercado Livre devolve o usuário aqui (web e mobile).
   async function callback(req, res) {
-    const { code, state, error } = req.query;
-    const r = await oauthFlow.handleCallback({ code, state, error, sessionUserId: req.session?.userId });
+    const { code, state, error, error_description: errorDescription } = req.query;
+    const r = await oauthFlow.handleCallback({
+      code, state, error, errorDescription, sessionUserId: req.session?.userId, host: req.get?.("host"),
+    });
     if (r.client === "mobile") {
       const qs = `status=${r.ok ? "ok" : "erro"}&mensagem=${encodeURIComponent(r.message)}`;
       return res.redirect(`${mobileRedirect}?${qs}`);
@@ -36,7 +38,7 @@ export function createMlOAuthController({
 
   // API Bearer (app mobile).
   async function apiStart(req, res) {
-    res.json({ url: await oauthFlow.startAuthorization(req.user.id, "mobile") });
+    res.json({ url: await oauthFlow.startAuthorization(req.user.id, "mobile", { host: req.get?.("host") }) });
   }
 
   async function apiStatus(req, res) {

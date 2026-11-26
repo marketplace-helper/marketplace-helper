@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import prisma from "../config/prisma.js";
 import { config } from "../config/env.js";
 import { sendTemplateEmail, TEMPLATES } from "./mailService.js";
+import { dadosDeVerificacao } from "./acesso/plano.js";
 
 // Confirmação de cadastro e recuperação de senha por link enviado por e-mail.
 // O token puro só existe no link; no banco fica o hash SHA-256 (se o banco vazar,
@@ -12,6 +13,9 @@ const TOKEN_TTL_MS = {
   VERIFY: 24 * 60 * 60 * 1000, // 24h
   RESET: 60 * 60 * 1000, // 1h
   EMAIL_CHANGE: 24 * 60 * 60 * 1000, // 24h
+  // Links dos e-mails aos administradores (liberar/bloquear uma conta).
+  ADMIN_LIBERAR: 7 * 24 * 60 * 60 * 1000, // 7 dias
+  ADMIN_BLOQUEAR: 7 * 24 * 60 * 60 * 1000,
 };
 
 const ROUTES = {
@@ -23,7 +27,7 @@ const ROUTES = {
 const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
 
 // Gera um novo token, invalidando os anteriores do mesmo tipo (só o link mais recente vale).
-async function issueToken(userId, type) {
+export async function issueToken(userId, type) {
   const token = crypto.randomBytes(32).toString("base64url");
   const now = new Date();
   const [, record] = await prisma.$transaction([
@@ -69,14 +73,15 @@ async function sendTokenEmail(user, type, to = user.email) {
     template: TEMPLATES[type],
     variables: { STORE_NAME: user.storeName, ACTION_URL: actionUrl },
     // Uma chave por token emitido: retries do mesmo envio não duplicam,
-    // e um novo pedido (novo token) gera um novo e-mail.
-    idempotencyKey: `${type.toLowerCase()}-email/${record.id}`,
+    // e um novo pedido (novo token) gera um novo e-mail. Usa o hash (aleatório), não o id:
+    // ids se repetem entre staging, produção e local, que usam a mesma chave do Resend.
+    idempotencyKey: `${type.toLowerCase()}-email/${record.tokenHash}`,
   });
   return true;
 }
 
 // Retorna o registro do token se ele for válido (existe, do tipo certo, não usado, não expirado).
-async function findValidToken(token, type) {
+export async function findValidToken(token, type) {
   if (!token || typeof token !== "string") return null;
   const record = await prisma.authToken.findUnique({ where: { tokenHash: hashToken(token) } });
   if (!record || record.type !== type || record.usedAt || record.expiresAt < new Date()) {
@@ -87,7 +92,7 @@ async function findValidToken(token, type) {
 
 // Marca o token como usado de forma atômica: se duas requisições chegarem juntas,
 // só uma consegue (a outra vê count = 0).
-async function consumeToken(record) {
+export async function consumeToken(record) {
   const { count } = await prisma.authToken.updateMany({
     where: { id: record.id, usedAt: null },
     data: { usedAt: new Date() },
@@ -101,14 +106,30 @@ export function sendVerificationEmail(user) {
   return sendTokenEmail(user, "VERIFY");
 }
 
+// Chamado depois que um e-mail é confirmado pela primeira vez (ex.: avisar os admins).
+let aoConfirmarEmail = async () => {};
+export function definirAoConfirmarEmail(fn) {
+  aoConfirmarEmail = fn;
+}
+
+// Marca o e-mail como confirmado e, se for o primeiro, começa o período de teste.
+async function marcarConfirmado(userId, extra = {}) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const primeiraVez = !user.emailVerifiedAt;
+  const atualizado = await prisma.user.update({
+    where: { id: userId },
+    data: { ...extra, ...dadosDeVerificacao(user, new Date(), config.teste.dias) },
+  });
+  if (primeiraVez) {
+    aoConfirmarEmail(atualizado).catch((e) => console.error("[verify] pós-confirmação falhou:", e.message));
+  }
+}
+
 /** Confirma o e-mail. Retorna true se o token era válido. */
 export async function verifyEmail(token) {
   const record = await findValidToken(token, "VERIFY");
   if (!record || !(await consumeToken(record))) return false;
-  await prisma.user.update({
-    where: { id: record.userId },
-    data: { emailVerifiedAt: new Date() },
-  });
+  await marcarConfirmado(record.userId);
   return true;
 }
 
@@ -128,11 +149,8 @@ export async function resetPassword(token, newPassword) {
   const record = await findValidToken(token, "RESET");
   if (!record || !(await consumeToken(record))) return false;
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  await prisma.user.update({
-    where: { id: record.userId },
-    // Quem recebeu o link de reset provou que controla o e-mail.
-    data: { passwordHash, emailVerifiedAt: new Date() },
-  });
+  // Quem recebeu o link de reset provou que controla o e-mail.
+  await marcarConfirmado(record.userId, { passwordHash });
   return true;
 }
 

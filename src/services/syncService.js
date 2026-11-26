@@ -14,6 +14,9 @@ import {
 import { filtrarItensDoVendedor } from "./ml/sellerFilter.js";
 import connectionStore from "./ml/connectionStore.js";
 import { ReconnectRequiredError, NotConnectedError } from "./ml/tokenManager.js";
+import { config } from "../config/env.js";
+import { situacaoDoPlano } from "./acesso/plano.js";
+import { cortarAnuncios, decidirSync } from "./acesso/limitesSync.js";
 
 // Estado de progresso por usuario (userId -> state)
 const syncStates = new Map();
@@ -95,9 +98,24 @@ function parsePrices(data, pricesList) {
 }
 
 // ================= sync =================
-export async function runSync(userId, mlbs = null) {
+// origem "manual" (botão/API) conta no limite diário do modo teste; "auto" (agendamento e
+// notificações do ML) só roda para contas com uso completo. Negado: retorna { negado: motivo }.
+export async function runSync(userId, mlbs = null, { origem = "manual" } = {}) {
   const current = syncStates.get(userId);
   if (current?.running) return current;
+
+  const [user, settings] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId } }),
+    getSettings(userId),
+  ]);
+  const situacao = situacaoDoPlano(user);
+  const decisao = decidirSync({
+    situacao, origem, settings, agora: new Date(), limites: config.teste, timezone: config.timezone,
+  });
+  if (!decisao.permitido) return { ...idleState(), negado: decisao.motivo };
+  // Pode ter começado outro sync enquanto lia o banco. Daqui até syncStates.set não há
+  // await, então um segundo pedido simultâneo sempre encontra este como "rodando".
+  if (syncStates.get(userId)?.running) return syncStates.get(userId);
 
   const selection = Array.isArray(mlbs) && mlbs.length > 0 ? mlbs : null;
 
@@ -111,7 +129,14 @@ export async function runSync(userId, mlbs = null) {
   };
   syncStates.set(userId, state);
 
-  doSync(userId, selection).catch((e) => {
+  if (decisao.dadosSettings) {
+    // Falha ao gravar o contador não pode deixar o estado preso em "rodando".
+    await prisma.settings
+      .update({ where: { userId }, data: decisao.dadosSettings })
+      .catch((e) => console.error("[SYNC] contador do modo teste não gravado:", e.message));
+  }
+
+  doSync(userId, selection, { situacao, max: config.teste.maxAnuncios }).catch((e) => {
     console.error("[SYNC] erro:", e);
     state.error = e.message;
     state.running = false;
@@ -122,7 +147,7 @@ export async function runSync(userId, mlbs = null) {
   return state;
 }
 
-async function doSync(userId, selection) {
+async function doSync(userId, selection, { situacao, max }) {
   const state = syncStates.get(userId);
   const settings = await getSettings(userId);
   const zip = settings.zipCode;
@@ -139,6 +164,12 @@ async function doSync(userId, selection) {
     });
     state.totalIds = ids.length;
   }
+
+  // Modo teste: só os primeiros `max` anúncios (antes de chamar o ML para os detalhes).
+  const cortados = cortarAnuncios(ids, situacao, max);
+  if (cortados.length < ids.length) state.limiteTeste = max;
+  ids = cortados;
+  state.totalIds = ids.length;
 
   state.phase = "buscando detalhes";
   let details = await getItemsDetails(userId, ids);

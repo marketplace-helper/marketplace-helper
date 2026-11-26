@@ -35,24 +35,30 @@ import { showSimulator, runSimulator } from "../controllers/simulatorController.
 import { showProducts, saveProductCost, saveProductDims, pesoDoSku} from "../controllers/productController.js";
 import { showFrete } from "../controllers/freteController.js";
 import { showMedir } from "../controllers/medirController.js";
+import { showAcao, aplicarAcao } from "../controllers/adminController.js";
+import { limitarPorIp, limiteEnvios, limiteLogin } from "../middleware/rateLimit.js";
 
 const router = Router();
 
 // ===== Publicas (sem login) =====
 router.get("/login", showLogin);
-router.post("/login", login);
+router.post("/login", limitarPorIp(limiteLogin, { view: "login" }), login);
 router.get("/register", showRegister);
-router.post("/register", register);
+router.post("/register", limitarPorIp(limiteEnvios, { view: "register" }), register);
 router.get("/recuperar-senha", showForgot);
-router.post("/recuperar-senha", submitForgot);
+router.post("/recuperar-senha", limitarPorIp(limiteEnvios, { view: "login" }), submitForgot);
 router.get("/redefinir-senha", showResetPassword);
 router.post("/redefinir-senha", submitResetPassword);
 router.get("/verifique-email", showCheckEmail);
-router.post("/confirmar-email/reenviar", resendVerification);
+router.post("/confirmar-email/reenviar", limitarPorIp(limiteEnvios, { view: "login" }), resendVerification);
 router.get("/confirmar-email", confirmEmail);
 router.get("/confirmar-novo-email", confirmAccountEmailChange);
 router.get("/logout", logout);
 router.post("/logout", logout);
+
+// Links enviados aos administradores (o token é a autorização).
+router.get("/admin/contas/acao", showAcao);
+router.post("/admin/contas/acao", aplicarAcao);
 
 // ===== Daqui pra baixo exige login =====
 router.use(requireAuth);

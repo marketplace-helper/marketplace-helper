@@ -46,8 +46,13 @@ export function createOAuthFlow({
   now = () => Date.now(),
   appId = config.ml.appId,
   redirectUri = config.ml.redirectUri,
+  log = (m) => console.log(m),
 } = {}) {
-  async function startAuthorization(userId, clientType) {
+  // Nunca loga code, state nem tokens.
+  const ctx = (o) => Object.entries(o).filter(([, v]) => v != null && v !== "").map(([k, v]) => `${k}=${v}`).join(" ");
+
+  async function startAuthorization(userId, clientType, { host } = {}) {
+    log(`[ML OAuth] início ${ctx({ usuario: userId, cliente: clientType, host, redirect_uri: redirectUri })}`);
     const nonce = randomBytes(16).toString("hex");
     const { verifier, challenge } = createPkcePair();
     await attempts.create({
@@ -69,42 +74,53 @@ export function createOAuthFlow({
   }
 
   // Nunca lança: qualquer falha vira { ok: false, message } para a tela de retorno.
-  async function handleCallback({ code, state, error, sessionUserId } = {}) {
+  async function handleCallback({ code, state, error, errorDescription, sessionUserId, host } = {}) {
     const s = verifyState(state);
     const clientType = s?.client === "mobile" ? "mobile" : "web";
-    const fail = (message) => ({ ok: false, client: clientType, message });
-    if (!s) return fail(MSG.expired);
+    const base = { usuario: s?.userId, cliente: clientType, host, sessao: sessionUserId ?? "nenhuma" };
+    const fail = (message, motivo, extra = {}) => {
+      log(`[ML OAuth] callback recusado: motivo=${motivo} ${ctx({ ...base, ...extra })}`);
+      return { ok: false, client: clientType, message };
+    };
+    if (!s) return fail(MSG.expired, state ? "state_invalido" : "sem_state", { error });
     // Web: quem conclui precisa ser o usuário logado que iniciou o fluxo (evita ligar a conta
     // ML de uma vítima ao usuário do atacante). Mobile não tem sessão; veja o README.
-    if (clientType === "web" && (sessionUserId == null || sessionUserId !== s.userId)) return fail(MSG.expired);
+    // Sem sessão costuma ser cookie de outro domínio: o fluxo começou num host e o
+    // redirect_uri do ML devolveu para outro.
+    if (clientType === "web" && sessionUserId == null) return fail(MSG.expired, "sem_sessao", { redirect_uri: redirectUri });
+    if (clientType === "web" && sessionUserId !== s.userId) return fail(MSG.expired, "sessao_de_outro_usuario");
 
     try {
       // Consome primeiro: o state vale uma única vez, inclusive quando o usuário cancela.
       const attempt = await attempts.consume(s.nonce);
-      if (!attempt || attempt.userId !== s.userId) return fail(MSG.expired);
+      if (!attempt || attempt.userId !== s.userId) return fail(MSG.expired, "tentativa_usada_ou_expirada");
 
-      if (error === "access_denied") return fail(MSG.denied);
-      if (error || !code) return fail(MSG.failed);
+      const doMl = { error, descricao: errorDescription ? JSON.stringify(String(errorDescription).slice(0, 200)) : null };
+      if (error === "access_denied") return fail(MSG.denied, "negado_pelo_usuario");
+      if (error) return fail(MSG.failed, "erro_do_ml", doMl);
+      if (!code) return fail(MSG.failed, "sem_code");
 
       let tokens;
       try {
         tokens = await client.exchangeCode({ code, codeVerifier: attempt.codeVerifier });
       } catch (e) {
-        console.error("[ML OAuth] falha na troca do code:", e.code || e.message);
-        return fail(MSG.failed);
+        // invalid_grant costuma ser redirect_uri diferente do cadastrado no app do ML,
+        // code já usado/expirado ou code_verifier (PKCE) que não bate.
+        return fail(MSG.failed, "troca_do_code_falhou", {
+          erro: e.code, status: e.status, mensagem: JSON.stringify(String(e.message).slice(0, 200)), redirect_uri: redirectUri,
+        });
       }
 
       try {
         await store.saveTokens(s.userId, tokens);
       } catch (e) {
-        if (e?.code === "P2002") return fail(MSG.alreadyLinked);
-        console.error("[ML OAuth] falha ao salvar tokens:", e.message);
-        return fail(MSG.failed);
+        if (e?.code === "P2002") return fail(MSG.alreadyLinked, "conta_ml_de_outro_usuario", { ml_user: tokens.mlUserId });
+        return fail(MSG.failed, "falha_ao_salvar_tokens", { mensagem: JSON.stringify(String(e.message).slice(0, 200)) });
       }
+      log(`[ML OAuth] conectado ${ctx({ usuario: s.userId, cliente: clientType, ml_user: tokens.mlUserId })}`);
       return { ok: true, client: clientType, message: MSG.ok };
     } catch (e) {
-      console.error("[ML OAuth] erro inesperado no callback:", e.message);
-      return fail(MSG.failed);
+      return fail(MSG.failed, "erro_inesperado", { mensagem: JSON.stringify(String(e.message).slice(0, 200)) });
     }
   }
 

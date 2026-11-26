@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import { lerInteiroPositivo } from "../services/acesso/plano.js";
 dotenv.config();
 
 const isProduction = process.env.NODE_ENV === "production";
@@ -36,10 +37,26 @@ if (isProduction) {
   }
 }
 
+// Administradores que recebem os pedidos de liberação de contas (vírgula entre e-mails).
+const adminEmails = String(process.env.ADMIN_EMAILS || "")
+  .split(",")
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+if (isProduction && adminEmails.length === 0) {
+  console.warn("[env] ATENÇÃO: ADMIN_EMAILS não definida. Ninguém vai receber os pedidos de liberação de contas.");
+}
+
 const appUrl = (process.env.APP_URL || `http://localhost:${Number(process.env.PORT) || 3333}`).replace(/\/+$/, "");
 
 export const config = {
   isProduction,
+  adminEmails,
+  // Limites do modo teste: a env do Railway tem prioridade; inválido ou vazio usa o padrão.
+  teste: {
+    maxAnuncios: lerInteiroPositivo(process.env.TESTE_MAX_ANUNCIOS, 50),
+    syncsDia: lerInteiroPositivo(process.env.TESTE_SYNCS_DIA, 3),
+    dias: lerInteiroPositivo(process.env.TESTE_DIAS, 14),
+  },
   port: Number(process.env.PORT) || 3333,
   // Fuso usado pelo agendamento (cron). Servidores em nuvem costumam rodar em UTC.
   timezone: process.env.TZ || "America/Sao_Paulo",

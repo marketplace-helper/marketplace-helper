@@ -4,6 +4,7 @@ import connectionStore from "./services/ml/connectionStore.js";
 import { config } from "./config/env.js";
 import tokenManager from "./services/ml/tokenManager.js";
 import { runSync } from "./services/syncService.js";
+import adminService from "./services/acesso/adminService.js";
 
 // Sincroniza os anúncios de todos os usuários que já autorizaram o ML.
 async function syncAllUsers() {
@@ -11,7 +12,8 @@ async function syncAllUsers() {
   console.log(`[CRON] Sincronizando ${userIds.length} conta(s)...`);
   for (const userId of userIds) {
     try {
-      await runSync(userId); // roda em background (não bloqueia)
+      const r = await runSync(userId, null, { origem: "auto" }); // roda em background (não bloqueia)
+      if (r?.negado && r.negado !== "auto") console.log(`[CRON] usuário ${userId}: ${r.negado}`);
     } catch (e) {
       console.error(`[CRON] erro no usuário ${userId}:`, e.message);
     }
@@ -58,6 +60,10 @@ export function startScheduler() {
           ")"
       );
       syncAllUsers();
+      adminService
+        .avisarTestesExpirados()
+        .then((n) => n && console.log(`[CRON] ${n} aviso(s) de fim de teste enviado(s) aos admins.`))
+        .catch((e) => console.error("[CRON] aviso de fim de teste falhou:", e.message));
     },
     { timezone: config.timezone }
   );

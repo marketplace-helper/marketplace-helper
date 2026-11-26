@@ -25,7 +25,7 @@ export function createSyncQueue({
     clearTimer(lote.timer);
     const log = (e) => console.error("[ML webhook] falha no sync seletivo:", e?.message || e);
     try {
-      Promise.resolve(runSync(userId, [...lote.mlbs])).catch(log);
+      Promise.resolve(runSync(userId, [...lote.mlbs], { origem: "auto" })).catch(log);
     } catch (e) {
       log(e);
     }
