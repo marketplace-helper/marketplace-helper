@@ -57,3 +57,16 @@ test("pedido sem itens é ignorado", async () => {
   const { svc } = setup({ orderItems: [] });
   assert.equal(await svc.handle({ ...base, topic: "orders_v2", resource: "/orders/2000" }), "ignorado");
 });
+
+test("conta sem sincronização automática (modo teste) não enfileira", async () => {
+  const enqueued = [];
+  const svc = createWebhookService({
+    appId: "123",
+    store: { findUserIdByMlUserId: async () => 42 },
+    queue: { enqueue: (u, m) => enqueued.push([u, m]) },
+    getOrderItemIds: async () => ["MLB9"],
+    podeAutoSync: async (userId) => userId !== 42,
+  });
+  assert.equal(await svc.handle(base), "ignorado");
+  assert.deepEqual(enqueued, []);
+});

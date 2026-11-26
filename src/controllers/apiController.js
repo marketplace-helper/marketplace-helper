@@ -11,8 +11,12 @@ import { freteEstimado } from "../services/freteTable.js";
 import { runSync, getSyncState, getSettings, updateZipCode } from "../services/syncService.js";
 import { getAuthStatus } from "../services/mlAuth.js";
 import { buildProductsWorkbook } from "../services/exportService.js";
+import { situacaoDoPlano, MSG_BLOQUEADO } from "../services/acesso/plano.js";
+import { config } from "../config/env.js";
 
-const publicUser = (u) => ({ id: u.id, email: u.email, storeName: u.storeName, whatsapp: u.whatsapp });
+const publicUser = (u) => ({
+  id: u.id, email: u.email, storeName: u.storeName, whatsapp: u.whatsapp, plano: u.plano, testeAte: u.testeAte,
+});
 
 // ===== Autenticação =====
 export async function login(req, res) {
@@ -23,6 +27,9 @@ export async function login(req, res) {
   }
   if (!user.emailVerifiedAt) {
     return res.status(403).json({ error: "E-mail não confirmado. Use o link enviado no cadastro." });
+  }
+  if (!situacaoDoPlano(user).podeEntrar) {
+    return res.status(403).json({ error: MSG_BLOQUEADO });
   }
   res.json({ token: signToken(user.id), user: publicUser(user) });
 }
@@ -48,7 +55,12 @@ export async function register(req, res) {
 
 export async function me(req, res) {
   const status = await getAuthStatus(req.user.id);
-  res.json({ user: publicUser(req.user), mercadoLivre: status });
+  res.json({
+    user: publicUser(req.user),
+    mercadoLivre: status,
+    situacao: situacaoDoPlano(req.user),
+    limites: config.teste,
+  });
 }
 
 // ===== Dados =====
@@ -120,6 +132,7 @@ export async function saveZip(req, res) {
 export async function startSync(req, res) {
   const mlbs = Array.isArray(req.body?.mlbs) ? req.body.mlbs : null;
   const state = await runSync(req.user.id, mlbs);
+  if (state.negado) return res.status(429).json({ error: state.negado });
   res.json({ ok: true, state });
 }
 

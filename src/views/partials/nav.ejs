@@ -71,6 +71,7 @@
 <div class="app-overlay" id="appOverlay"></div>
 
 <main class="app-main">
+<%- include('planoBanner') %>
 <% if (typeof mlStatus !== 'undefined' && mlStatus === 'reconnect_required') { %>
   <div class="alert alert-warning d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3" role="alert">
     <span><i class="bi bi-exclamation-triangle"></i> Sua conexão com o Mercado Livre expirou.</span>

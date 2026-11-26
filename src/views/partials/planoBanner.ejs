@@ -1,0 +1,17 @@
+<%# Faixa do modo teste. Usa res.locals.situacaoPlano e res.locals.limitesTeste (middleware de auth). %>
+<% if (typeof situacaoPlano !== 'undefined' && situacaoPlano && situacaoPlano.emTeste) {
+     var L = limitesTeste;
+     var fim = situacaoPlano.testeAte ? new Date(situacaoPlano.testeAte).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '';
+%>
+  <% if (situacaoPlano.testeExpirado) { %>
+    <div class="alert alert-warning mb-3" role="status">
+      <i class="bi bi-hourglass-bottom"></i>
+      Seu período de teste terminou. Estamos analisando sua conta — você ainda pode ver os dados, mas as atualizações estão pausadas.
+    </div>
+  <% } else { %>
+    <div class="alert alert-info py-2 small mb-3" role="status">
+      <i class="bi bi-stars"></i>
+      Modo teste: até <%= L.maxAnuncios %> anúncios e <%= L.syncsDia %> atualizações manuais por dia, sem atualização automática.<% if (fim) { %> Termina em <%= fim %>.<% } %>
+    </div>
+  <% } %>
+<% } %>

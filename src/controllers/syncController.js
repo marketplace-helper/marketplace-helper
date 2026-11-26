@@ -8,6 +8,7 @@ export async function startSync(req, res) {
     return res.status(401).json({ error: "Autorize o app primeiro." });
   }
   const state = await runSync(userId);
+  if (state.negado) return res.status(429).json({ error: state.negado });
   res.json({ ok: true, state });
 }
 
@@ -22,6 +23,7 @@ export async function startSyncSelection(req, res) {
     return res.status(400).json({ error: "Nenhum anuncio selecionado." });
   }
   const state = await runSync(userId, mlbs);
+  if (state.negado) return res.status(429).json({ error: state.negado });
   res.json({ ok: true, state });
 }
 

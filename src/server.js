@@ -9,6 +9,8 @@ import routes from "./routes/index.js";
 import apiRoutes from "./routes/api.js";
 import { openapiSpec } from "./docs/openapi.js";
 import { startScheduler } from "./scheduler.js";
+import { definirAoConfirmarEmail } from "./services/emailAuthService.js";
+import adminService from "./services/acesso/adminService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -73,6 +75,9 @@ app.use((err, req, res, next) => {
     message: err.message || "Erro interno.",
   });
 });
+
+// Conta nova confirmada: os admins recebem o pedido de liberação.
+definirAoConfirmarEmail((user) => adminService.avisarAdmins(user, "Nova conta em teste"));
 
 app.listen(config.port, () => {
   console.log(`\n  Marketplace Helper rodando em http://localhost:${config.port}`);
