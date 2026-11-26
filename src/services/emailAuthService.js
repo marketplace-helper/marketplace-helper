@@ -73,8 +73,9 @@ async function sendTokenEmail(user, type, to = user.email) {
     template: TEMPLATES[type],
     variables: { STORE_NAME: user.storeName, ACTION_URL: actionUrl },
     // Uma chave por token emitido: retries do mesmo envio não duplicam,
-    // e um novo pedido (novo token) gera um novo e-mail.
-    idempotencyKey: `${type.toLowerCase()}-email/${record.id}`,
+    // e um novo pedido (novo token) gera um novo e-mail. Usa o hash (aleatório), não o id:
+    // ids se repetem entre staging, produção e local, que usam a mesma chave do Resend.
+    idempotencyKey: `${type.toLowerCase()}-email/${record.tokenHash}`,
   });
   return true;
 }

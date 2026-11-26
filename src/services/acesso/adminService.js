@@ -32,7 +32,9 @@ export function createAdminService({ prisma, tokens, sendTemplateEmail, config }
         LIBERAR_URL: urlDaAcao(liberar.token),
         BLOQUEAR_URL: urlDaAcao(bloquear.token),
       },
-      idempotencyKey: `admin-conta/${liberar.record.id}`,
+      // Hash do token (aleatório): o id do banco se repete entre staging, produção e local,
+      // que usam a mesma chave do Resend.
+      idempotencyKey: `admin-conta/${liberar.record.tokenHash}`,
     });
     return true;
   }
@@ -66,7 +68,7 @@ export function createAdminService({ prisma, tokens, sendTemplateEmail, config }
         to: user.email,
         template: TEMPLATES.CONTA_LIBERADA,
         variables: { STORE_NAME: user.storeName, ACTION_URL: `${config.appUrl}/login` },
-        idempotencyKey: `conta-liberada/${achada.record.id}`,
+        idempotencyKey: `conta-liberada/${achada.record.tokenHash}`,
       }).catch((e) => console.error("[admin] aviso de conta liberada falhou:", e.message));
     }
     return { ok: true, acao: achada.acao, user };

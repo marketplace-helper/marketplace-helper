@@ -18,7 +18,7 @@ function setup({ adminEmails = ["a@x.com", "b@x.com"], users = null } = {}) {
   const emitidos = new Map(); // token -> { userId, type, usado }
   let seq = 0;
   const tokens = {
-    issueToken: async (userId, type) => { const token = `t${++seq}`; emitidos.set(token, { id: seq, userId, type, usado: false }); return { token, record: { id: seq } }; },
+    issueToken: async (userId, type) => { const token = `t${++seq}`; emitidos.set(token, { id: seq, tokenHash: `hash${seq}`, userId, type, usado: false }); return { token, record: { id: seq, tokenHash: `hash${seq}` } }; },
     findValidToken: async (token, type) => { const r = emitidos.get(token); return r && r.type === type && !r.usado ? { ...r, token } : null; },
     consumeToken: async (record) => { const r = emitidos.get(record.token); if (!r || r.usado) return false; r.usado = true; return true; },
   };
@@ -110,4 +110,10 @@ test("sem ADMIN_EMAILS não marca como avisado (avisa quando a env for configura
   const { svc, db } = setup({ adminEmails: [], users: usuariosTeste() });
   assert.equal(await svc.avisarTestesExpirados(new Date("2026-11-25T12:00:00Z")), 0);
   assert.equal(db.users.get(1).testeAvisoEm, null);
+});
+
+test("chave de idempotência usa o hash do token (ids de banco se repetem entre ambientes)", async () => {
+  const { svc, enviados } = setup({ users: usuariosTeste() });
+  await svc.avisarAdmins({ id: 1, email: "a@x.com", storeName: "L" }, "Nova conta em teste");
+  assert.match(enviados.at(-1).idempotencyKey, /^admin-conta\/hash\d+$/);
 });
