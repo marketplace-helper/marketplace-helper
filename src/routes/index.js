@@ -36,7 +36,7 @@ import { showProducts, saveProductCost, saveProductDims, pesoDoSku} from "../con
 import { showFrete } from "../controllers/freteController.js";
 import { showMedir } from "../controllers/medirController.js";
 import { showAcao, aplicarAcao } from "../controllers/adminController.js";
-import { limitarPorIp, limiteEnvios, limiteLogin } from "../middleware/rateLimit.js";
+import { limitarPorIp, limiteEnvios, limiteLogin, LIMITES_ATIVOS } from "../middleware/rateLimit.js";
 import {
   classificar,
   classificarLote,
@@ -47,15 +47,15 @@ const router = Router();
 
 // ===== Publicas (sem login) =====
 router.get("/login", showLogin);
-router.post("/login", limitarPorIp(limiteLogin, { view: "login" }), login);
+router.post("/login", limitarPorIp(limiteLogin, { view: "login", ativo: LIMITES_ATIVOS }), login);
 router.get("/register", showRegister);
-router.post("/register", limitarPorIp(limiteEnvios, { view: "register" }), register);
+router.post("/register", limitarPorIp(limiteEnvios, { view: "register", ativo: LIMITES_ATIVOS }), register);
 router.get("/recuperar-senha", showForgot);
-router.post("/recuperar-senha", limitarPorIp(limiteEnvios, { view: "login" }), submitForgot);
+router.post("/recuperar-senha", limitarPorIp(limiteEnvios, { view: "login", ativo: LIMITES_ATIVOS }), submitForgot);
 router.get("/redefinir-senha", showResetPassword);
 router.post("/redefinir-senha", submitResetPassword);
 router.get("/verifique-email", showCheckEmail);
-router.post("/confirmar-email/reenviar", limitarPorIp(limiteEnvios, { view: "login" }), resendVerification);
+router.post("/confirmar-email/reenviar", limitarPorIp(limiteEnvios, { view: "login", ativo: LIMITES_ATIVOS }), resendVerification);
 router.get("/confirmar-email", confirmEmail);
 router.get("/confirmar-novo-email", confirmAccountEmailChange);
 router.get("/logout", logout);

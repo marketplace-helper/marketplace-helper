@@ -4,6 +4,14 @@ dotenv.config();
 
 const isProduction = process.env.NODE_ENV === "production";
 
+// Máquina de desenvolvimento: sem NODE_ENV=production e fora do Railway (que sempre
+// define RAILWAY_ENVIRONMENT). Aqui os e-mails sem RESEND_API_KEY vão para o terminal
+// e os limites de tentativas por IP ficam desligados.
+export function ehAmbienteLocal(env = process.env) {
+  return env.NODE_ENV !== "production" && !env.RAILWAY_ENVIRONMENT;
+}
+const isLocal = ehAmbienteLocal();
+
 // Em produção, os segredos precisam vir do ambiente: sem eles, o app usaria
 // valores padrão públicos (cookies forjáveis e tokens do ML decifráveis).
 if (isProduction) {
@@ -50,6 +58,7 @@ const appUrl = (process.env.APP_URL || `http://localhost:${Number(process.env.PO
 
 export const config = {
   isProduction,
+  isLocal,
   adminEmails,
   // Limites do modo teste: a env do Railway tem prioridade; inválido ou vazio usa o padrão.
   teste: {

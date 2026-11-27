@@ -8,12 +8,21 @@ export const TEMPLATES = {
   VERIFY: "confirmar-email", // variáveis: STORE_NAME, ACTION_URL
   RESET: "redefinir-senha", // variáveis: STORE_NAME, ACTION_URL
   EMAIL_CHANGE: "confirmar-novo-email", // variáveis: STORE_NAME, ACTION_URL
-  // Para os administradores: STORE_NAME, EMAIL, WHATSAPP, MOTIVO, LIBERAR_URL, BLOQUEAR_URL
+  // Para os administradores: STORE_NAME, CONTA_EMAIL, WHATSAPP, MOTIVO, LIBERAR_URL, BLOQUEAR_URL
   ADMIN_CONTA: "admin-conta",
   CONTA_LIBERADA: "conta-liberada", // variáveis: STORE_NAME, ACTION_URL
 };
 
 const resend = config.resendApiKey ? new Resend(config.resendApiKey) : null;
+
+// Rodando local sem RESEND_API_KEY: o e-mail vai para o terminal, com os links clicáveis.
+export function formatarEmailLocal({ to, template, variables = {} }) {
+  const linhas = Object.entries(variables).map(([k, v]) => `  ${k}: ${v}`);
+  return [
+    `[mail] (local, não enviado) ${template} → ${[].concat(to).join(", ")}`,
+    ...linhas,
+  ].join("\n");
+}
 
 const MAX_ATTEMPTS = 3;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -37,6 +46,10 @@ function retryDelayMs(headers, attempt) {
  * Retorna o id do e-mail no Resend. Lança erro se não conseguir enviar.
  */
 export async function sendTemplateEmail({ to, template, variables, idempotencyKey }) {
+  if (!resend && config.isLocal) {
+    console.log(formatarEmailLocal({ to, template, variables }));
+    return "local";
+  }
   if (!resend) {
     throw new Error("RESEND_API_KEY não configurada: não é possível enviar e-mails.");
   }

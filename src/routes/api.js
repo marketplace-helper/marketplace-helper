@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireApiAuth } from "../middleware/apiAuth.js";
 import * as api from "../controllers/apiController.js";
 import ml from "../controllers/mlOAuthController.js";
-import { limitarPorIp, limiteEnvios, limiteLogin } from "../middleware/rateLimit.js";
+import { limitarPorIp, limiteEnvios, limiteLogin, LIMITES_ATIVOS } from "../middleware/rateLimit.js";
 import {
   classificar,
   classificarLote,
@@ -15,8 +15,8 @@ const router = Router();
 const a = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 // ===== Públicas =====
-router.post("/login", limitarPorIp(limiteLogin), a(api.login));
-router.post("/register", limitarPorIp(limiteEnvios), a(api.register));
+router.post("/login", limitarPorIp(limiteLogin, { ativo: LIMITES_ATIVOS }), a(api.login));
+router.post("/register", limitarPorIp(limiteEnvios, { ativo: LIMITES_ATIVOS }), a(api.register));
 // O Mercado Livre redireciona o navegador para cá, sem Bearer.
 router.get("/ml/oauth/callback", a(ml.callback));
 // Notificações do Mercado Livre (items e orders_v2), sem Bearer.
