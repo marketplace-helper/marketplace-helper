@@ -4,18 +4,58 @@
 
 ## Cálculo financeiro
 
-O cálculo central está em `calcService.js::computeProfit(item, rules)`:
+O cálculo central está em `calcService.js::calcularCustoProduto(item, ctx)` (o nome antigo
+`computeProfit` continua exportado). `ctx` é o **contexto tributário** do usuário
+(`tributos/contexto.js::criarContextoTributario(userId, { ano })`): as regras da tela *Regras* e
+as alíquotas da tabela `AliquotaTributaria` válidas para o regime, a UF e a data do cálculo.
 
 ```
 base      = precoPor  (se houver promoção)  |  precoDe  (caso contrário)
-impostos  = base × (ICMS + IPI + DIFAL + Custo Operacional) / 100
+impostos  = Σ devido de cada tributo (tributos/calcularTributos.js)
+            ICMS     = base × ICMS% × fator de transição (1 até 2028 … 0 em 2033)
+            IPI, DIFAL, Custo Operacional = base × %
+            PIS, COFINS, CBS, IBS = max(0, débito − crédito)
+                débito  = base × alíquota da tabela
+                crédito = custoProduto × alíquota   (só não cumulativos e com "crédito na compra" ligado)
 lucro     = base − custoProduto − comissão − frete − impostos
 margem    = lucro / base × 100
 custoML   = comissão + frete            (quanto o Mercado Livre "consome")
 ```
 
-As alíquotas vêm de `BusinessRule` (tela *Regras*). O custo do produto é informado pelo vendedor,
-por SKU (tela *Produtos*). Comissão e frete vêm da API do Mercado Livre.
+O regime tributário, a UF de origem, a opção de crédito e as alíquotas de ICMS/IPI/DIFAL/Custo
+operacional vêm de `BusinessRule` (tela *Regras*). O padrão é **Simples Nacional**, que não
+acrescenta PIS/Cofins/CBS/IBS: para quem não mexer em *Regras*, as margens são as mesmas de antes.
+O custo do produto é informado pelo vendedor, por SKU (tela *Produtos*). Comissão e frete vêm da
+API do Mercado Livre.
+
+**Simulação por ano** — Anúncios, Dashboard, Exportar e Simulador aceitam `?ano=` (seletor
+"Alíquotas de": Hoje, 2027, 2029, 2033). Anos simulados usam a data de 1º de julho daquele ano e
+mostram o aviso "Simulação de &lt;ano&gt; com alíquotas estimadas — confira com seu contador.".
+
+## Alíquotas tributárias (reforma CBS/IBS)
+
+As alíquotas **não ficam no código**: ficam na tabela `AliquotaTributaria`, cada linha com sua
+vigência. A escolha (`tributos/resolverAliquotas.js`) filtra por regime (exato ou `TODOS`), data e
+UF e, se mais de uma linha vale, prefere UF preenchida → regime exato → início mais recente → maior
+`id`. Linhas com `ncm`/`cClassTrib` ainda são ignoradas (reservadas para alíquotas por produto).
+
+| Período | Presumido / Real | Simples híbrido | Simples | ICMS (fator) |
+|---|---|---|---|---|
+| até 2026 | PIS 0,65% + Cofins 3% (Presumido, cumulativo); PIS 1,65% + Cofins 7,6% (Real, não cumulativo) | — | — | × 1 |
+| 2026 | + CBS 0,9% e IBS 0,1% **só destaque** (não custam) | — | — | × 1 |
+| 2027–2028 | CBS 8,7%* + IBS 0,1% | igual | — | × 1 |
+| 2029–2032 | CBS 8,8%* + IBS 1,77 / 3,54 / 5,31 / 7,08%* | igual | — | × 0,9 / 0,8 / 0,7 / 0,6 |
+| 2033 em diante | CBS 8,8%* + IBS 17,7%* | igual | — | × 0 |
+
+\* **Estimativa**: a alíquota de referência ainda não foi fixada (out/2026). Os valores precisam
+ser revisados por um contador e atualizados quando o Senado/Comitê Gestor publicar as alíquotas.
+
+**Como atualizar uma alíquota** — nunca edite a linha que já está em vigor no passado. Encerre-a
+(`vigenciaFim`) e acrescente uma nova linha com outra `chave`, em `prisma/seed/aliquotas.js`
+(fonte das linhas do sistema, gravadas por *upsert* pela `chave`) ou direto no Prisma Studio.
+O seed roda em todo `start:prod` e pode ser rodado à mão com `npm run seed:aliquotas`. A leitura
+tem cache de 10 minutos. A API `GET /api/tributos/aliquotas?ano=` mostra as linhas que valem para
+o usuário.
 
 ## Saúde do anúncio
 

@@ -15,8 +15,8 @@ export async function showSimulator(req, res) {
 export async function runSimulator(req, res) {
   const userId = req.user.id;
   const status = await getAuthStatus(userId);
-  const { title, preco, custo, freteManual } = req.body;
-  const values = { title, preco, custo, freteManual };
+  const { title, preco, custo, freteManual, ano } = req.body;
+  const values = { title, preco, custo, freteManual, ano };
 
   if (!status.authenticated) {
     return res.render("simulator", {
@@ -38,7 +38,7 @@ export async function runSimulator(req, res) {
   }
 
   try {
-    const resultado = await simulate(userId, { title, preco, custo, freteManual });
+    const resultado = await simulate(userId, { title, preco, custo, freteManual, ano });
     res.render("simulator", {
       title: "Simulador de Anúncio",
       authenticated: true,
