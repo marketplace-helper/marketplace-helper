@@ -138,6 +138,7 @@ Abre em <http://localhost:8080>. Os botões *Entrar* e *Crie sua conta* usam `wi
 | `npm run prisma:generate` | Regenera o Prisma Client |
 | `npm run prisma:studio` | Abre o Prisma Studio (inspeção visual do banco) |
 | `npm run conta:liberar -- <email>` | Confirma o e-mail e libera o uso completo de uma conta no banco do `.env` |
+| `npm run mock:anuncios -- <email>` | (só local) Grava 19 anúncios fictícios em 14 SKUs na conta, sem precisar do Mercado Livre. Rodar de novo substitui os fictícios (`MLB99…`) |
 
 ## Solução de problemas
 

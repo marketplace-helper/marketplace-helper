@@ -14,6 +14,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "conta:liberar": "node scripts/liberar-conta.js",
+    "mock:anuncios": "node scripts/mock-anuncios.js",
     "seed:aliquotas": "node prisma/seed/aliquotas.js"
   },
   "dependencies": {
