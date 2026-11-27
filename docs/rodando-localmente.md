@@ -9,8 +9,8 @@
 - Para conectar uma conta do Mercado Livre: as credenciais do **app da plataforma** no ML
   (`ML_APP_ID`, `ML_APP_SECRET`), com a Redirect URI `http://localhost:3333/api/ml/oauth/callback`
   cadastrada e **PKCE** habilitado. Ver [Integração com o Mercado Livre](integracao-mercado-livre.md).
-- Para receber e-mails (confirmação de cadastro, recuperação de senha): uma chave do **Resend**.
-  Sem domínio verificado, o remetente `onboarding@resend.dev` só entrega para o e-mail dono da conta Resend.
+- E-mail: **não precisa**. Sem `RESEND_API_KEY`, o app rodando local escreve cada e-mail no
+  terminal, com os links (ver [Sem e-mail](#sem-e-mail)). Com a chave do **Resend**, envia de verdade.
 
 ## 1. Obter o código
 
@@ -50,8 +50,8 @@ DATABASE_URL="file:./dev.db"
 APP_URL=http://localhost:3333
 ```
 
-Para o fluxo completo, preencha também `RESEND_API_KEY`, `MAIL_FROM`, `ML_APP_ID`, `ML_APP_SECRET` e
-`ADMIN_EMAILS`. A lista completa está em [Variáveis de ambiente](variaveis-de-ambiente.md).
+Para o fluxo completo, preencha também `ML_APP_ID`, `ML_APP_SECRET` e, se quiser e-mails de
+verdade, `RESEND_API_KEY`, `MAIL_FROM` e `ADMIN_EMAILS`. A lista completa está em [Variáveis de ambiente](variaveis-de-ambiente.md).
 
 > Não defina `NODE_ENV=production` localmente: o *cookie* de sessão passa a exigir HTTPS e o login não "segura".
 >
@@ -80,13 +80,38 @@ npm start        # ou: npm run dev (reinicia ao salvar)
 
 ## 6. Primeiro uso
 
-1. **Crie uma conta** e confirme o e-mail (a conta entra em modo teste; ver
-   [Regras de negócio](regras-de-negocio.md#contas-modo-teste-e-liberação)).
-   Para liberar o uso completo localmente, abra `npm run prisma:studio` e mude o campo `plano` do usuário para `COMPLETO`.
+1. **Crie uma conta** e libere direto no banco, sem e-mail:
+
+   ```bash
+   npm run conta:liberar -- seu@email.com
+   ```
+
+   Isso confirma o e-mail e coloca a conta em uso completo (`COMPLETO`). Para testar o modo teste,
+   confirme pelo link que aparece no terminal (ver [Sem e-mail](#sem-e-mail)).
 2. Em **Autorização**, clique em **Conectar com Mercado Livre** e autorize.
 3. Em **Anúncios**, clique em **Atualizar tudo** para importar o catálogo.
 4. Em **Produtos**, preencha **custos** e **medidas** por SKU; em **Regras**, informe as **alíquotas**.
 5. Veja lucro, margem, *insights* e frete divergente no **Dashboard**.
+
+## Sem e-mail
+
+O app se considera **local** quando `NODE_ENV` não é `production` e não está no Railway (sem
+`RAILWAY_ENVIRONMENT`). Rodando local:
+
+- **Sem `RESEND_API_KEY`**, os e-mails não são enviados: aparecem no terminal com todas as
+  variáveis, inclusive os links. Exemplo:
+
+  ```
+  [mail] (local, não enviado) confirmar-email → loja@exemplo.com
+    STORE_NAME: Minha Loja
+    ACTION_URL: http://localhost:3333/confirmar-email?token=...
+  ```
+
+  Copie o link para o navegador. Vale para confirmação, recuperação de senha, troca de e-mail e os
+  e-mails dos admins (com `ADMIN_EMAILS` preenchido, os links de liberar/bloquear também aparecem).
+  Os links usam o `APP_URL` do `.env`.
+- **Os limites de tentativas por IP ficam desligados** (dá para criar várias contas de teste seguidas).
+- Continua valendo o intervalo de 60 s entre dois e-mails do mesmo tipo para a mesma conta.
 
 ## Landing page (opcional)
 
@@ -109,6 +134,7 @@ Abre em <http://localhost:8080>. Os botões *Entrar* e *Crie sua conta* usam `wi
 | `npm run prisma:migrate` | Cria/aplica migrações em desenvolvimento |
 | `npm run prisma:generate` | Regenera o Prisma Client |
 | `npm run prisma:studio` | Abre o Prisma Studio (inspeção visual do banco) |
+| `npm run conta:liberar -- <email>` | Confirma o e-mail e libera o uso completo de uma conta no banco do `.env` |
 
 ## Solução de problemas
 
@@ -117,8 +143,9 @@ Abre em <http://localhost:8080>. Os botões *Entrar* e *Crie sua conta* usam `wi
 - **A tela mostra código antigo:** reinicie o servidor (ou use `npm run dev`).
 - **Campos do Prisma "unknown" / coluna inexistente:** rode `npx prisma migrate deploy` e `npx prisma generate`.
 - **Login não "segura":** remova `NODE_ENV=production` do `.env`.
-- **E-mail de confirmação não chega:** confira `RESEND_API_KEY` e `MAIL_FROM`. Com `onboarding@resend.dev`,
-  só o e-mail dono da conta Resend recebe.
+- **E-mail de confirmação não chega:** local, deixe `RESEND_API_KEY` vazia e pegue o link no terminal,
+  ou use `npm run conta:liberar -- <email>`. Com Resend: confira `RESEND_API_KEY` e `MAIL_FROM`
+  (com `onboarding@resend.dev`, só o e-mail dono da conta Resend recebe) e olhe o lixo eletrônico.
 - **Erro ao conectar o Mercado Livre:** a Redirect URI do painel do ML precisa ser **idêntica** a
   `ML_REDIRECT_URI` (padrão `APP_URL + /api/ml/oauth/callback`), com PKCE habilitado.
 - **Banner "reconectar":** a conexão está em `reconnect_required` (refresh recusado ou revogado);

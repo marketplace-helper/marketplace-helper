@@ -14,7 +14,7 @@ Arquivo `.env` na raiz (modelo em `.env.example`). Em produção, as variáveis 
 | `ENCRYPTION_KEY` | Chave de 64 hex para cifrar os tokens do ML (estável) — **obrigatório em produção** |
 | `DATABASE_URL` | SQLite — local: `file:./dev.db`; produção: `file:/data/prod.db` (volume) |
 | `TZ` | Fuso do agendamento (padrão **America/Sao_Paulo**) |
-| `RESEND_API_KEY` | Chave *sending access* do Resend |
+| `RESEND_API_KEY` | Chave *sending access* do Resend. Vazia rodando local: os e-mails aparecem no terminal |
 | `MAIL_FROM` | Remetente (padrão `Marketplace Helper <onboarding@resend.dev>`) |
 | `ML_APP_ID` · `ML_APP_SECRET` | Credenciais do app único da plataforma no Mercado Livre |
 | `ML_REDIRECT_URI` | Redirect URI do OAuth (padrão `${APP_URL}/api/ml/oauth/callback`) |

@@ -1,3 +1,5 @@
+import { config } from "../config/env.js";
+
 // Limite de tentativas por IP (em memória, janela fixa). Protege cadastro, login e
 // envios de e-mail contra robôs. Em produção o app usa `trust proxy`, então req.ip é o IP real.
 
@@ -25,9 +27,10 @@ export function criarLimitador({ max, janelaMs }) {
 }
 
 // Sem `view`: responde 429 em JSON (API). Com `view`: re-renderiza a tela com a mensagem.
-export function limitarPorIp(limitador, { view = null } = {}) {
+// `ativo: false` deixa tudo passar (padrão das rotas quando roda local).
+export function limitarPorIp(limitador, { view = null, ativo = true } = {}) {
   return (req, res, next) => {
-    if (limitador.permitir(req.ip || "desconhecido")) return next();
+    if (!ativo || limitador.permitir(req.ip || "desconhecido")) return next();
     if (!view) return res.status(429).json({ error: MSG_MUITAS_TENTATIVAS });
     const { email, storeName, whatsapp } = req.body || {};
     return res.status(429).render(view, {
@@ -39,6 +42,9 @@ export function limitarPorIp(limitador, { view = null } = {}) {
     });
   };
 }
+
+// Nas rotas: desligado na máquina de desenvolvimento (cadastrar várias contas de teste).
+export const LIMITES_ATIVOS = !config.isLocal;
 
 const HORA = 60 * 60 * 1000;
 // Cadastro, reenvio de confirmação e recuperação de senha dividem o mesmo limite (todos enviam e-mail).
