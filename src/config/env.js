@@ -80,4 +80,11 @@ export const config = {
     process.env.JWT_SECRET ||
     process.env.SESSION_SECRET ||
     "troque-este-segredo-no-env-por-um-aleatorio",
+
+  classifier: {
+    modelBaseUrl: (process.env.ML_ENDPOINT || "").replace(/\/+$/, ""),
+    cacheDir: process.env.MODEL_CACHE_DIR || "./tmp/models",
+    pollMs: Number(process.env.MODEL_POLL_MS || 21600000),
+    mlToken: process.env.ML_TOKEN || "",
+  },
 };

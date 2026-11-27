@@ -11,6 +11,7 @@ import { openapiSpec } from "./docs/openapi.js";
 import { startScheduler } from "./scheduler.js";
 import { definirAoConfirmarEmail } from "./services/emailAuthService.js";
 import adminService from "./services/acesso/adminService.js";
+import classifier from "./services/classifier/modelLoader.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -80,7 +81,19 @@ app.use((err, req, res, next) => {
 definirAoConfirmarEmail((user) => adminService.avisarAdmins(user, "Nova conta em teste"));
 
 app.listen(config.port, () => {
-  console.log(`\n  Marketplace Helper rodando em http://localhost:${config.port}`);
+  console.log(
+    `\n  Marketplace Helper rodando em http://localhost:${config.port}`
+  );
+
+  // Inicializa o classificador sem bloquear o servidor.
+  classifier.init().catch((error) => {
+    console.error(
+      "[ML] Falha na inicialização do classificador:",
+      error
+    );
+  });
+
   startScheduler();
+
   console.log("");
 });

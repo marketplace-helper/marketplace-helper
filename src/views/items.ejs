@@ -1,403 +1,481 @@
-<% var active = 'items'; %>
-<%- include('partials/head') %>
-<%- include('partials/nav') %>
+<% var active='items' ; %>
+  <%- include('partials/head') %>
+    <%- include('partials/nav') %>
 
-<%
-  // Helpers de ordenacao
-  function sortUrl(col) {
-    var d = (sort === col && dir === 'asc') ? 'desc' : 'asc';
-    var p = '/anuncios?sort=' + col + '&dir=' + d;
-    if (search) p += '&search=' + encodeURIComponent(search);
-    if (filter) p += '&filter=' + encodeURIComponent(filter);
-    return p;
-  }
-  function arrow(col) {
-    if (sort !== col) return '<span class="sort-ico">↕</span>';
-    return dir === 'asc' ? '<span class="sort-ico active">▲</span>' : '<span class="sort-ico active">▼</span>';
-  }
-  // Link oficial do anuncio: usa o permalink salvo; senao, fallback por MLB
-  function mlUrl(it) {
-    if (it.permalink) return it.permalink;
-    var digits = String(it.mlb).replace(/\D/g, '');
-    return 'https://produto.mercadolivre.com.br/MLB-' + digits;
-  }
-%>
+      <% // Helpers de ordenacao function sortUrl(col) { var d=(sort===col && dir==='asc' ) ? 'desc' : 'asc' ; var
+        p='/anuncios?sort=' + col + '&dir=' + d; if (search) p +='&search=' + encodeURIComponent(search); if (filter) p
+        +='&filter=' + encodeURIComponent(filter); return p; } function arrow(col) { if (sort !==col)
+        return '<span class="sort-ico">↕</span>' ; return dir==='asc' ? '<span class="sort-ico active">▲</span>'
+        : '<span class="sort-ico active">▼</span>' ; } // Link oficial do anuncio: usa o permalink salvo; senao,
+        fallback por MLB function mlUrl(it) { if (it.permalink) return it.permalink; var
+        digits=String(it.mlb).replace(/\D/g, '' ); return 'https://produto.mercadolivre.com.br/MLB-' + digits; } %>
 
-<div class="container-fluid py-3 px-md-4" id="itemsWrap" data-view="table">
+        <div class="container-fluid py-3 px-md-4" id="itemsWrap" data-view="table">
 
-  <!-- Barra de acoes -->
-  <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-    <form class="d-flex flex-grow-1" method="get" action="/anuncios" role="search">
-      <input type="hidden" name="sort" value="<%= sort %>" />
-      <input type="hidden" name="dir" value="<%= dir %>" />
-      <% if (filter) { %><input type="hidden" name="filter" value="<%= filter %>" /><% } %>
-      <div class="input-group">
-        <span class="input-group-text"><i class="bi bi-search"></i></span>
-        <input
-          type="text" name="search" class="form-control"
-          placeholder="Buscar por MLB, título ou SKU..."
-          value="<%= search %>"
-        />
-        <button class="btn btn-outline-secondary" type="submit">Buscar</button>
-        <% if (search) { %>
-          <a href="/anuncios" class="btn btn-outline-danger" title="Limpar"><i class="bi bi-x-lg"></i></a>
-        <% } %>
-      </div>
-    </form>
+          <!-- Barra de acoes -->
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+            <form class="d-flex flex-grow-1" method="get" action="/anuncios" role="search">
+              <input type="hidden" name="sort" value="<%= sort %>" />
+              <input type="hidden" name="dir" value="<%= dir %>" />
+              <% if (filter) { %><input type="hidden" name="filter" value="<%= filter %>" />
+                <% } %>
+                  <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" name="search" class="form-control" placeholder="Buscar por MLB, título ou SKU..."
+                      value="<%= search %>" />
+                    <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+                    <% if (search) { %>
+                      <a href="/anuncios" class="btn btn-outline-danger" title="Limpar"><i class="bi bi-x-lg"></i></a>
+                      <% } %>
+                  </div>
+            </form>
 
-    <!-- Botao que aparece quando ha itens selecionados -->
-    <button id="btnSyncSel" class="btn btn-primary fw-semibold d-none">
-      <i class="bi bi-check2-square"></i> Atualizar seleção (<span id="selCount">0</span>)
-    </button>
+            <!-- Botao que aparece quando ha itens selecionados -->
+            <button id="btnSyncSel" class="btn btn-primary fw-semibold d-none">
+              <i class="bi bi-check2-square"></i> Atualizar seleção (<span id="selCount">0</span>)
+            </button>
 
-    <button id="btnSync" class="btn btn-outline-primary fw-semibold" <%= authenticated ? '' : 'disabled' %>>
-      <i class="bi bi-arrow-repeat"></i> Atualizar tudo
-    </button>
+            <button id="btnSync" class="btn btn-outline-primary fw-semibold" <%=authenticated ? '' : 'disabled' %>>
+              <i class="bi bi-arrow-repeat"></i> Atualizar tudo
+            </button>
 
-    <a
-      class="btn btn-success"
-      href="/export<%= search ? ('?search=' + encodeURIComponent(search)) : '' %>"
-    >
-      <i class="bi bi-file-earmark-excel"></i> Exportar Excel
-    </a>
+            <a class="btn btn-success" href="/export<%= search ? ('?search=' + encodeURIComponent(search)) : '' %>">
+              <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+            </a>
 
-    <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#cepModal">
-      <i class="bi bi-geo-alt"></i> CEP: <%= zipCode %>
-    </button>
+            <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#cepModal">
+              <i class="bi bi-geo-alt"></i> CEP: <%= zipCode %>
+            </button>
 
-    <!-- Alternador de visualização (somente desktop; no mobile é sempre cards) -->
-    <div class="btn-group d-none d-lg-inline-flex" role="group" aria-label="Modo de exibição">
-      <button type="button" id="viewBtnTable" class="btn btn-outline-secondary" title="Visualizar como planilha">
-        <i class="bi bi-table"></i> Planilha
-      </button>
-      <button type="button" id="viewBtnCards" class="btn btn-outline-secondary" title="Visualizar como cards">
-        <i class="bi bi-grid-3x3-gap"></i> Cards
-      </button>
-    </div>
-  </div>
-
-  <!-- Progresso do sync -->
-  <div id="syncBox" class="alert alert-info d-none">
-    <div class="d-flex justify-content-between">
-      <span id="syncPhase">Iniciando...</span>
-      <span id="syncCounts"></span>
-    </div>
-    <div class="progress mt-2" style="height: 8px;">
-      <div id="syncBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
-    </div>
-  </div>
-
-  <% if (!authenticated) { %>
-    <div class="alert alert-warning">
-      <i class="bi bi-exclamation-triangle"></i>
-      Você ainda não autorizou o app. Vá em <a href="/auth" class="alert-link">Autorização</a> para conectar.
-    </div>
-  <% } %>
-
-  <!-- Filtro ativo (vindo dos KPIs do Dashboard) -->
-  <% if (filter && filterLabel) {
-       var clearUrl = '/anuncios' + (search ? '?search=' + encodeURIComponent(search) : '');
-  %>
-    <div class="mb-2">
-      <span class="badge rounded-pill text-bg-primary fs-6 fw-normal py-2 px-3">
-        <i class="bi bi-funnel-fill"></i> <%= filterLabel %>
-        <a href="<%= clearUrl %>" class="text-white text-decoration-none ms-2" title="Limpar filtro">
-          <i class="bi bi-x-circle-fill"></i>
-        </a>
-      </span>
-    </div>
-  <% } %>
-
-  <!-- Info -->
-  <div class="d-flex justify-content-between align-items-center mb-2">
-    <small class="text-muted">
-      <strong><%= total %></strong> anúncio(s)
-      <% if (search) { %> para "<strong><%= search %></strong>"<% } %>
-      <% if (filter && filterLabel) { %> <span class="text-primary">· filtrado</span><% } %>
-      · página <%= page %> de <%= totalPages %>
-    </small>
-  </div>
-
-  <!-- Tabela (planilha) -->
-  <div class="table-responsive table-sticky shadow-sm rounded view-pane view-pane-table">
-    <table class="table table-hover table-sm align-middle bg-white mb-0">
-      <thead>
-        <tr>
-          <th class="text-center" style="width: 34px;">
-            <input class="form-check-input" type="checkbox" id="checkAll" title="Selecionar todos" />
-          </th>
-          <th><a class="sort-link" href="<%= sortUrl('mlb') %>">MLB <%- arrow('mlb') %></a></th>
-          <th><a class="sort-link" href="<%= sortUrl('titulo') %>">Título <%- arrow('titulo') %></a></th>
-          <th><a class="sort-link" href="<%= sortUrl('sku') %>">SKU <%- arrow('sku') %></a></th>
-          <th class="text-end"><a class="sort-link" href="<%= sortUrl('custoProduto') %>">Custo <%- arrow('custoProduto') %></a></th>
-          <th class="text-end"><a class="sort-link" href="<%= sortUrl('precoDe') %>">Preço De <%- arrow('precoDe') %></a></th>
-          <th class="text-end"><a class="sort-link" href="<%= sortUrl('precoPor') %>">Preço Por <%- arrow('precoPor') %></a></th>
-          <th class="text-end"><a class="sort-link" href="<%= sortUrl('frete') %>">Frete <%- arrow('frete') %></a></th>
-          <th class="text-center">Frete Δ</th>
-          <th class="text-end"><a class="sort-link" href="<%= sortUrl('comissao') %>">Comissão <%- arrow('comissao') %></a></th>
-          <th class="text-end"><a class="sort-link" href="<%= sortUrl('custoML') %>">Custo ML <%- arrow('custoML') %></a></th>
-          <th class="text-end"><a class="sort-link" href="<%= sortUrl('lucro') %>">Lucro Líq. <%- arrow('lucro') %></a></th>
-          <th class="text-end"><a class="sort-link" href="<%= sortUrl('margem') %>">Margem <%- arrow('margem') %></a></th>
-          <th class="text-center"><a class="sort-link" href="<%= sortUrl('tipo') %>">Tipo <%- arrow('tipo') %></a></th>
-          <th class="text-end"><a class="sort-link" href="<%= sortUrl('visitas') %>">Visitas <%- arrow('visitas') %></a></th>
-          <th class="text-end"><a class="sort-link" href="<%= sortUrl('vendas') %>">Vendas <%- arrow('vendas') %></a></th>
-          <th class="text-end"><a class="sort-link" href="<%= sortUrl('estoque') %>">Estoque <%- arrow('estoque') %></a></th>
-          <th class="text-center"><a class="sort-link" href="<%= sortUrl('full') %>">Full <%- arrow('full') %></a></th>
-          <th class="text-center"><a class="sort-link" href="<%= sortUrl('status') %>">Status <%- arrow('status') %></a></th>
-        </tr>
-      </thead>
-      <tbody>
-        <% if (items.length === 0) { %>
-          <tr><td colspan="19" class="text-center text-muted py-4">
-            Nenhum anúncio. Clique em <strong>Atualizar tudo</strong> para sincronizar com o Mercado Livre.
-          </td></tr>
-        <% } %>
-        <% items.forEach(function(it) { %>
-          <tr>
-            <td class="text-center">
-              <input class="form-check-input row-check" type="checkbox" value="<%= it.mlb %>" />
-            </td>
-            <td>
-              <a href="<%= mlUrl(it) %>" target="_blank" rel="noopener" class="text-decoration-none">
-                <%= it.mlb %>
-              </a>
-            </td>
-            <td class="text-truncate" style="max-width: 320px;" title="<%= it.titulo %>"><%= it.titulo %></td>
-            <td><small><%= it.sku || '-' %></small></td>
-            <td class="text-end">
-              <% if (it.custoProduto != null) { %>R$ <%= it.custoProduto.toFixed(2) %><% } else { %><span class="text-muted">-</span><% } %>
-            </td>
-            <td class="text-end">R$ <%= it.precoDe.toFixed(2) %></td>
-            <td class="text-end"><%= it.precoPor ? 'R$ ' + it.precoPor.toFixed(2) : '-' %></td>
-            <td class="text-end"><%= it.frete != null ? 'R$ ' + it.frete.toFixed(2) : '-' %></td>
-            <td class="text-center">
-              <% if (it.freteMudou && it.freteAnterior != null) { %>
-                <% var up = it.frete > it.freteAnterior; %>
-                <span class="badge <%= up ? 'text-bg-danger' : 'text-bg-success' %>" title="Antes: R$ <%= it.freteAnterior.toFixed(2) %>">
-                  <i class="bi bi-arrow-<%= up ? 'up' : 'down' %>"></i>
-                  R$ <%= Math.abs(it.frete - it.freteAnterior).toFixed(2) %>
-                </span>
-              <% } else { %>
-                <span class="text-muted">-</span>
-              <% } %>
-            </td>
-            <td class="text-end">
-              <% if (it.comissao != null) { %>
-                R$ <%= it.comissao.toFixed(2) %>
-                <% if (it.comissaoPct != null) { %><small class="text-muted">(<%= it.comissaoPct %>%)</small><% } %>
-              <% } else { %>-<% } %>
-            </td>
-            <td class="text-end">
-              <% if (it.comissao != null) { %>
-                <strong class="text-danger">R$ <%= it._calc.custoML.toFixed(2) %></strong>
-              <% } else { %>-<% } %>
-            </td>
-            <td class="text-end cell-lucro" data-mlb="<%= it.mlb %>">
-              <% if (it._calc.lucro != null) { %>
-                <strong class="<%= it._calc.lucro >= 0 ? 'text-success' : 'text-danger' %>">R$ <%= it._calc.lucro.toFixed(2) %></strong>
-              <% } else { %><span class="text-muted">-</span><% } %>
-            </td>
-            <td class="text-end cell-margem" data-mlb="<%= it.mlb %>">
-              <% if (it._calc.margem != null) { %>
-                <span class="badge <%= it._calc.margem >= 0 ? 'text-bg-success' : 'text-bg-danger' %>"><%= it._calc.margem.toFixed(1) %>%</span>
-              <% } else { %><span class="text-muted">-</span><% } %>
-            </td>
-            <td class="text-center"><small><%= it.tipoAnuncio %></small></td>
-            <td class="text-end"><%= it.visitas %></td>
-            <td class="text-end"><%= it.vendas %></td>
-            <td class="text-end"><%= it.estoque %></td>
-            <td class="text-center"><% if (it.full) { %><span class="badge text-bg-success"><i class="bi bi-lightning-charge-fill"></i> Full</span><% } %></td>
-            <td class="text-center">
-              <span class="badge <%= it.status === 'active' ? 'text-bg-success' : 'text-bg-secondary' %>">
-                <%= it.status || '-' %>
-              </span>
-            </td>
-          </tr>
-        <% }); %>
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Cards (mobile / tablet / desktop no modo cards) -->
-  <div class="view-pane view-pane-cards">
-    <%
-      function msort(c, d) {
-        var u = "/anuncios?sort=" + c + "&dir=" + d;
-        if (search) u += "&search=" + encodeURIComponent(search);
-        if (filter) u += "&filter=" + encodeURIComponent(filter);
-        return u;
-      }
-      function mdefault() {
-        var parts = [];
-        if (search) parts.push("search=" + encodeURIComponent(search));
-        if (filter) parts.push("filter=" + encodeURIComponent(filter));
-        return "/anuncios" + (parts.length ? "?" + parts.join("&") : "");
-      }
-      function sel(c, d) { return sort === c && dir === d ? "selected" : ""; }
-    %>
-    <div class="mb-2">
-      <select class="form-select form-select-sm" onchange="if(this.value){window.location.href=this.value}">
-        <option value="<%= mdefault() %>" <%= !sort ? 'selected' : '' %>>Ordenar: padrão</option>
-        <option value="<%= msort('margem','desc') %>" <%= sel('margem','desc') %>>Margem (maior)</option>
-        <option value="<%= msort('margem','asc') %>" <%= sel('margem','asc') %>>Margem (menor)</option>
-        <option value="<%= msort('lucro','desc') %>" <%= sel('lucro','desc') %>>Lucro (maior)</option>
-        <option value="<%= msort('precoDe','desc') %>" <%= sel('precoDe','desc') %>>Preço (maior)</option>
-        <option value="<%= msort('frete','desc') %>" <%= sel('frete','desc') %>>Frete (maior)</option>
-        <option value="<%= msort('vendas','desc') %>" <%= sel('vendas','desc') %>>Vendas (maior)</option>
-        <option value="<%= msort('visitas','desc') %>" <%= sel('visitas','desc') %>>Visitas (maior)</option>
-      </select>
-    </div>
-
-    <% if (items.length === 0) { %>
-      <div class="text-center text-muted py-4 bg-white rounded shadow-sm">
-        Nenhum anúncio. Clique em <strong>Atualizar tudo</strong>.
-      </div>
-    <% } %>
-
-    <div class="cards-grid">
-    <% items.forEach(function(it) { %>
-      <div class="card shadow-sm mb-2">
-        <div class="card-body p-3">
-
-          <!-- Cabeçalho -->
-          <div class="d-flex gap-2">
-            <input class="form-check-input row-check mt-1" type="checkbox" value="<%= it.mlb %>" />
-            <% if (it.thumbnail) { %>
-              <img src="<%= it.thumbnail %>" class="item-card-img" alt="" loading="lazy" />
-            <% } else { %>
-              <div class="item-card-img d-flex align-items-center justify-content-center text-muted" style="background: var(--mh-primary-soft);"><i class="bi bi-image"></i></div>
-            <% } %>
-            <div class="flex-grow-1" style="min-width: 0;">
-              <div class="fw-semibold item-card-title" title="<%= it.titulo %>"><%= it.titulo %></div>
-              <a href="<%= mlUrl(it) %>" target="_blank" rel="noopener" class="small text-decoration-none"><%= it.mlb %></a>
-              <div class="d-flex flex-wrap gap-1 mt-1">
-                <span class="badge <%= it.status === 'active' ? 'text-bg-success' : 'text-bg-secondary' %>"><%= it.status || '-' %></span>
-                <% if (it.full) { %><span class="badge text-bg-success"><i class="bi bi-lightning-charge-fill"></i> Full</span><% } %>
-                <span class="badge text-bg-secondary"><%= it.tipoAnuncio %></span>
-              </div>
+            <!-- Alternador de visualização (somente desktop; no mobile é sempre cards) -->
+            <div class="btn-group d-none d-lg-inline-flex" role="group" aria-label="Modo de exibição">
+              <button type="button" id="viewBtnTable" class="btn btn-outline-secondary"
+                title="Visualizar como planilha">
+                <i class="bi bi-table"></i> Planilha
+              </button>
+              <button type="button" id="viewBtnCards" class="btn btn-outline-secondary" title="Visualizar como cards">
+                <i class="bi bi-grid-3x3-gap"></i> Cards
+              </button>
             </div>
           </div>
 
-          <!-- Métricas -->
-          <div class="row g-2 small text-center mt-3 pt-3 border-top">
-            <div class="col-4"><span class="mcard-lbl">Venda</span><strong>R$ <%= it._calc.base.toFixed(2) %></strong></div>
-            <div class="col-4"><span class="mcard-lbl">Lucro</span>
-              <% if (it._calc.lucro != null) { %><strong class="<%= it._calc.lucro >= 0 ? 'text-success' : 'text-danger' %>">R$ <%= it._calc.lucro.toFixed(2) %></strong><% } else { %><span class="text-muted">—</span><% } %>
+          <!-- Progresso do sync -->
+          <div id="syncBox" class="alert alert-info d-none">
+            <div class="d-flex justify-content-between">
+              <span id="syncPhase">Iniciando...</span>
+              <span id="syncCounts"></span>
             </div>
-            <div class="col-4"><span class="mcard-lbl">Margem</span>
-              <% if (it._calc.margem != null) { %><span class="badge <%= it._calc.margem >= 0 ? 'text-bg-success' : 'text-bg-danger' %>"><%= it._calc.margem.toFixed(1) %>%</span><% } else { %><span class="text-muted">—</span><% } %>
+            <div class="progress mt-2" style="height: 8px;">
+              <div id="syncBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
             </div>
-            <div class="col-4"><span class="mcard-lbl">Frete</span><%= it.frete != null ? 'R$ ' + it.frete.toFixed(2) : '—' %></div>
-            <div class="col-4"><span class="mcard-lbl">Comissão</span><%= it.comissao != null ? 'R$ ' + it.comissao.toFixed(2) : '—' %></div>
-            <div class="col-4"><span class="mcard-lbl">Custo</span><%= it.custoProduto != null ? 'R$ ' + it.custoProduto.toFixed(2) : '—' %></div>
+          </div>
+
+          <% if (!authenticated) { %>
+            <div class="alert alert-warning">
+              <i class="bi bi-exclamation-triangle"></i>
+              Você ainda não autorizou o app. Vá em <a href="/auth" class="alert-link">Autorização</a> para conectar.
+            </div>
+            <% } %>
+
+              <!-- Filtro ativo (vindo dos KPIs do Dashboard) -->
+              <% if (filter && filterLabel) { var clearUrl='/anuncios' + (search ? '?search=' +
+                encodeURIComponent(search) : '' ); %>
+                <div class="mb-2">
+                  <span class="badge rounded-pill text-bg-primary fs-6 fw-normal py-2 px-3">
+                    <i class="bi bi-funnel-fill"></i>
+                    <%= filterLabel %>
+                      <a href="<%= clearUrl %>" class="text-white text-decoration-none ms-2" title="Limpar filtro">
+                        <i class="bi bi-x-circle-fill"></i>
+                      </a>
+                  </span>
+                </div>
+                <% } %>
+
+                  <!-- Info -->
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small class="text-muted">
+                      <strong>
+                        <%= total %>
+                      </strong> anúncio(s)
+                      <% if (search) { %> para "<strong>
+                          <%= search %>
+                        </strong>"<% } %>
+                          <% if (filter && filterLabel) { %> <span class="text-primary">· filtrado</span>
+                            <% } %>
+                              · página <%= page %> de <%= totalPages %>
+                    </small>
+                  </div>
+
+                  <!-- Tabela (planilha) -->
+                  <div class="table-responsive table-sticky shadow-sm rounded view-pane view-pane-table">
+                    <table class="table table-hover table-sm align-middle bg-white mb-0">
+                      <thead>
+                        <tr>
+                          <th class="text-center" style="width: 34px;">
+                            <input class="form-check-input" type="checkbox" id="checkAll" title="Selecionar todos" />
+                          </th>
+                          <th><a class="sort-link" href="<%= sortUrl('mlb') %>">MLB <%- arrow('mlb') %></a></th>
+                          <th><a class="sort-link" href="<%= sortUrl('titulo') %>">Título <%- arrow('titulo') %></a>
+                          </th>
+                          <th><a class="sort-link" href="<%= sortUrl('sku') %>">SKU <%- arrow('sku') %></a></th>
+                          <th class="text-end"><a class="sort-link" href="<%= sortUrl('custoProduto') %>">Custo <%-
+                                arrow('custoProduto') %></a></th>
+                          <th class="text-end"><a class="sort-link" href="<%= sortUrl('precoDe') %>">Preço De <%-
+                                arrow('precoDe') %></a></th>
+                          <th class="text-end"><a class="sort-link" href="<%= sortUrl('precoPor') %>">Preço Por <%-
+                                arrow('precoPor') %></a></th>
+                          <th class="text-end"><a class="sort-link" href="<%= sortUrl('frete') %>">Frete <%-
+                                arrow('frete') %></a></th>
+                          <th class="text-center">Frete Δ</th>
+                          <th class="text-end"><a class="sort-link" href="<%= sortUrl('comissao') %>">Comissão <%-
+                                arrow('comissao') %></a></th>
+                          <th class="text-end"><a class="sort-link" href="<%= sortUrl('custoML') %>">Custo ML <%-
+                                arrow('custoML') %></a></th>
+                          <th class="text-end"><a class="sort-link" href="<%= sortUrl('lucro') %>">Lucro Líq. <%-
+                                arrow('lucro') %></a></th>
+                          <th class="text-end"><a class="sort-link" href="<%= sortUrl('margem') %>">Margem <%-
+                                arrow('margem') %></a></th>
+                          <th class="text-center">Classificação ML</th>
+                          <th class="text-center"><a class="sort-link" href="<%= sortUrl('tipo') %>">Tipo <%-
+                                arrow('tipo') %></a></th>
+                          <th class="text-end"><a class="sort-link" href="<%= sortUrl('visitas') %>">Visitas <%-
+                                arrow('visitas') %></a></th>
+                          <th class="text-end"><a class="sort-link" href="<%= sortUrl('vendas') %>">Vendas <%-
+                                arrow('vendas') %></a></th>
+                          <th class="text-end"><a class="sort-link" href="<%= sortUrl('estoque') %>">Estoque <%-
+                                arrow('estoque') %></a></th>
+                          <th class="text-center"><a class="sort-link" href="<%= sortUrl('full') %>">Full <%-
+                                arrow('full') %></a></th>
+                          <th class="text-center"><a class="sort-link" href="<%= sortUrl('status') %>">Status <%-
+                                arrow('status') %></a></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <% if (items.length===0) { %>
+                          <tr>
+                            <td colspan="20" class="text-center text-muted py-4">
+                              Nenhum anúncio. Clique em <strong>Atualizar tudo</strong> para sincronizar com o Mercado
+                              Livre.
+                            </td>
+                          </tr>
+                          <% } %>
+                            <% items.forEach(function(it) { %>
+                              <tr>
+                                <td class="text-center">
+                                  <input class="form-check-input row-check" type="checkbox" value="<%= it.mlb %>" />
+                                </td>
+                                <td>
+                                  <a href="<%= mlUrl(it) %>" target="_blank" rel="noopener"
+                                    class="text-decoration-none">
+                                    <%= it.mlb %>
+                                  </a>
+                                </td>
+                                <td class="text-truncate" style="max-width: 320px;" title="<%= it.titulo %>">
+                                  <%= it.titulo %>
+                                </td>
+                                <td><small>
+                                    <%= it.sku || '-' %>
+                                  </small></td>
+                                <td class="text-end">
+                                  <% if (it.custoProduto !=null) { %>R$ <%= it.custoProduto.toFixed(2) %>
+                                      <% } else { %><span class="text-muted">-</span>
+                                        <% } %>
+                                </td>
+                                <td class="text-end">R$ <%= it.precoDe.toFixed(2) %>
+                                </td>
+                                <td class="text-end">
+                                  <%= it.precoPor ? 'R$ ' + it.precoPor.toFixed(2) : '-' %>
+                                </td>
+                                <td class="text-end">
+                                  <%= it.frete !=null ? 'R$ ' + it.frete.toFixed(2) : '-' %>
+                                </td>
+                                <td class="text-center">
+                                  <% if (it.freteMudou && it.freteAnterior !=null) { %>
+                                    <% var up=it.frete> it.freteAnterior; %>
+                                      <span class="badge <%= up ? 'text-bg-danger' : 'text-bg-success' %>"
+                                        title="Antes: R$ <%= it.freteAnterior.toFixed(2) %>">
+                                        <i class="bi bi-arrow-<%= up ? 'up' : 'down' %>"></i>
+                                        R$ <%= Math.abs(it.frete - it.freteAnterior).toFixed(2) %>
+                                      </span>
+                                      <% } else { %>
+                                        <span class="text-muted">-</span>
+                                        <% } %>
+                                </td>
+                                <td class="text-end">
+                                  <% if (it.comissao !=null) { %>
+                                    R$ <%= it.comissao.toFixed(2) %>
+                                      <% if (it.comissaoPct !=null) { %><small class="text-muted">(<%= it.comissaoPct %>
+                                            %)</small>
+                                        <% } %>
+                                          <% } else { %>-<% } %>
+                                </td>
+                                <td class="text-end">
+                                  <% if (it.comissao !=null) { %>
+                                    <strong class="text-danger">R$ <%= it._calc.custoML.toFixed(2) %></strong>
+                                    <% } else { %>-<% } %>
+                                </td>
+                                <td class="text-end cell-lucro" data-mlb="<%= it.mlb %>">
+                                  <% if (it._calc.lucro !=null) { %>
+                                    <strong class="<%= it._calc.lucro >= 0 ? 'text-success' : 'text-danger' %>">R$ <%=
+                                        it._calc.lucro.toFixed(2) %></strong>
+                                    <% } else { %><span class="text-muted">-</span>
+                                      <% } %>
+                                </td>
+                                <td class="text-end cell-margem" data-mlb="<%= it.mlb %>">
+                                  <% if (it._calc.margem !=null) { %>
+                                    <span
+                                      class="badge <%= it._calc.margem >= 0 ? 'text-bg-success' : 'text-bg-danger' %>">
+                                      <%= it._calc.margem.toFixed(1) %>%
+                                    </span>
+                                    <% } else { %><span class="text-muted">-</span>
+                                      <% } %>
+                                </td>
+                                <td class="text-center">
+                              <tr data-item-id="<%= it.id %>"></tr>
+                              <span class="classificacao-badge badge text-bg-secondary" data-id="<%= it.id %>">
+                                Aguardando...
+                              </span>
+                              </td>
+                              <td class="text-center"><small>
+                                  <%= it.tipoAnuncio %>
+                                </small></td>
+                              <td class="text-end">
+                                <%= it.visitas %>
+                              </td>
+                              <td class="text-end">
+                                <%= it.vendas %>
+                              </td>
+                              <td class="text-end">
+                                <%= it.estoque %>
+                              </td>
+                              <td class="text-center">
+                                <% if (it.full) { %><span class="badge text-bg-success"><i
+                                      class="bi bi-lightning-charge-fill"></i> Full</span>
+                                  <% } %>
+                              </td>
+                              <td class="text-center">
+                                <span
+                                  class="badge <%= it.status === 'active' ? 'text-bg-success' : 'text-bg-secondary' %>">
+                                  <%= it.status || '-' %>
+                                </span>
+                              </td>
+                              </tr>
+                              <% }); %>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <!-- Cards (mobile / tablet / desktop no modo cards) -->
+                  <div class="view-pane view-pane-cards">
+                    <% function msort(c, d) { var u="/anuncios?sort=" + c + "&dir=" + d; if (search) u +="&search=" +
+                      encodeURIComponent(search); if (filter) u +="&filter=" + encodeURIComponent(filter); return u; }
+                      function mdefault() { var parts=[]; if (search) parts.push("search=" + encodeURIComponent(search));
+        if (filter) parts.push(" filter=" + encodeURIComponent(filter));
+        return " /anuncios" + (parts.length ? "?" + parts.join("&") : "" ); } function sel(c, d) { return sort===c &&
+                      dir===d ? "selected" : "" ; } %>
+                      <div class="mb-2">
+                        <select class="form-select form-select-sm"
+                          onchange="if(this.value){window.location.href=this.value}">
+                          <option value="<%= mdefault() %>" <%=!sort ? 'selected' : '' %>>Ordenar: padrão</option>
+                          <option value="<%= msort('margem','desc') %>" <%=sel('margem','desc') %>>Margem (maior)
+                          </option>
+                          <option value="<%= msort('margem','asc') %>" <%=sel('margem','asc') %>>Margem (menor)</option>
+                          <option value="<%= msort('lucro','desc') %>" <%=sel('lucro','desc') %>>Lucro (maior)</option>
+                          <option value="<%= msort('precoDe','desc') %>" <%=sel('precoDe','desc') %>>Preço (maior)
+                          </option>
+                          <option value="<%= msort('frete','desc') %>" <%=sel('frete','desc') %>>Frete (maior)</option>
+                          <option value="<%= msort('vendas','desc') %>" <%=sel('vendas','desc') %>>Vendas (maior)
+                          </option>
+                          <option value="<%= msort('visitas','desc') %>" <%=sel('visitas','desc') %>>Visitas (maior)
+                          </option>
+                        </select>
+                      </div>
+
+                      <% if (items.length===0) { %>
+                        <div class="text-center text-muted py-4 bg-white rounded shadow-sm">
+                          Nenhum anúncio. Clique em <strong>Atualizar tudo</strong>.
+                        </div>
+                        <% } %>
+
+                          <div class="cards-grid">
+                            <% items.forEach(function(it) { %>
+                              <div class="card shadow-sm mb-2">
+                                <div class="card-body p-3">
+
+                                  <!-- Cabeçalho -->
+                                  <div class="d-flex gap-2">
+                                    <input class="form-check-input row-check mt-1" type="checkbox"
+                                      value="<%= it.mlb %>" />
+                                    <% if (it.thumbnail) { %>
+                                      <img src="<%= it.thumbnail %>" class="item-card-img" alt="" loading="lazy" />
+                                      <% } else { %>
+                                        <div
+                                          class="item-card-img d-flex align-items-center justify-content-center text-muted"
+                                          style="background: var(--mh-primary-soft);"><i class="bi bi-image"></i></div>
+                                        <% } %>
+                                          <div class="flex-grow-1" style="min-width: 0;">
+                                            <div class="fw-semibold item-card-title" title="<%= it.titulo %>">
+                                              <%= it.titulo %>
+                                            </div>
+                                            <a href="<%= mlUrl(it) %>" target="_blank" rel="noopener"
+                                              class="small text-decoration-none">
+                                              <%= it.mlb %>
+                                            </a>
+                                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                              <span
+                                                class="badge <%= it.status === 'active' ? 'text-bg-success' : 'text-bg-secondary' %>">
+                                                <%= it.status || '-' %>
+                                              </span>
+                                              <% if (it.full) { %><span class="badge text-bg-success"><i
+                                                    class="bi bi-lightning-charge-fill"></i> Full</span>
+                                                <% } %>
+                                                  <span class="badge text-bg-secondary">
+                                                    <%= it.tipoAnuncio %>
+                                                  </span>
+                                            </div>
+                                            <div class="mt-2">
+                                              <small class="text-muted d-block mb-1">
+                                                Classificação inteligente
+                                              </small>
+
+                                              <span class="classificacao-badge badge text-bg-secondary"
+                                                data-id="<%= it.id %>">
+                                                Aguardando...
+                                              </span>
+                                            </div>
+                                          </div>
+                                  </div>
+
+                                  <!-- Métricas -->
+                                  <div class="row g-2 small text-center mt-3 pt-3 border-top">
+                                    <div class="col-4"><span class="mcard-lbl">Venda</span><strong>R$ <%=
+                                          it._calc.base.toFixed(2) %></strong></div>
+                                    <div class="col-4"><span class="mcard-lbl">Lucro</span>
+                                      <% if (it._calc.lucro !=null) { %><strong
+                                          class="<%= it._calc.lucro >= 0 ? 'text-success' : 'text-danger' %>">R$ <%=
+                                            it._calc.lucro.toFixed(2) %></strong>
+                                        <% } else { %><span class="text-muted">—</span>
+                                          <% } %>
+                                    </div>
+                                    <div class="col-4"><span class="mcard-lbl">Margem</span>
+                                      <% if (it._calc.margem !=null) { %><span
+                                          class="badge <%= it._calc.margem >= 0 ? 'text-bg-success' : 'text-bg-danger' %>">
+                                          <%= it._calc.margem.toFixed(1) %>%
+                                        </span>
+                                        <% } else { %><span class="text-muted">—</span>
+                                          <% } %>
+                                    </div>
+                                    <div class="col-4"><span class="mcard-lbl">Frete</span>
+                                      <%= it.frete !=null ? 'R$ ' + it.frete.toFixed(2) : '—' %>
+                                    </div>
+                                    <div class="col-4"><span class="mcard-lbl">Comissão</span>
+                                      <%= it.comissao !=null ? 'R$ ' + it.comissao.toFixed(2) : '—' %>
+                                    </div>
+                                    <div class="col-4"><span class="mcard-lbl">Custo</span>
+                                      <%= it.custoProduto !=null ? 'R$ ' + it.custoProduto.toFixed(2) : '—' %>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                              <% }); %>
+                          </div>
+                  </div>
+
+                  <!-- Paginacao -->
+                  <% if (totalPages> 1) { %>
+                    <% function pageUrl(p) { var u='/anuncios?page=' + p; if (search) u +='&search=' +
+                      encodeURIComponent(search); if (sort) u +='&sort=' + sort + '&dir=' + dir; if (filter) u
+                      +='&filter=' + encodeURIComponent(filter); return u; } %>
+                      <nav class="mt-3">
+                        <ul class="pagination justify-content-center flex-wrap">
+                          <li class="page-item <%= page <= 1 ? 'disabled' : '' %>">
+                            <a class="page-link" href="<%= pageUrl(page - 1) %>">Anterior</a>
+                          </li>
+                          <% var start=Math.max(1, page - 3); var end=Math.min(totalPages, page + 3); if (start> 1) { %>
+                            <li class="page-item"><a class="page-link" href="<%= pageUrl(1) %>">1</a></li>
+                            <% if (start> 2) { %><li class="page-item disabled"><span class="page-link">…</span></li>
+                              <% } } for (var p=start; p <=end; p++) { %>
+                                <li class="page-item <%= p === page ? 'active' : '' %>">
+                                  <a class="page-link" href="<%= pageUrl(p) %>">
+                                    <%= p %>
+                                  </a>
+                                </li>
+                                <% } if (end < totalPages) { if (end < totalPages - 1) { %>
+                                  <li class="page-item disabled"><span class="page-link">…</span></li>
+                                  <% } %>
+                                    <li class="page-item"><a class="page-link" href="<%= pageUrl(totalPages) %>">
+                                        <%= totalPages %>
+                                      </a></li>
+                                    <% } %>
+                                      <li class="page-item <%= page >= totalPages ? 'disabled' : '' %>">
+                                        <a class="page-link" href="<%= pageUrl(page + 1) %>">Próxima</a>
+                                      </li>
+                        </ul>
+                      </nav>
+                      <% } %>
+        </div>
+
+        <!-- Modal CEP -->
+        <div class="modal fade" id="cepModal" tabindex="-1">
+          <div class="modal-dialog">
+            <form class="modal-content" action="/settings/zip" method="post">
+              <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-geo-alt"></i> CEP para cálculo de frete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <label class="form-label">CEP de destino (somente números)</label>
+                <input type="text" name="zipCode" class="form-control" value="<%= zipCode %>" placeholder="01001000" />
+                <small class="text-muted">Usado ao calcular o frete no próximo <strong>Atualizar</strong>.</small>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar</button>
+              </div>
+            </form>
           </div>
         </div>
-      </div>
-    <% }); %>
-    </div>
-  </div>
 
-  <!-- Paginacao -->
-  <% if (totalPages > 1) { %>
-    <%
-      function pageUrl(p) {
-        var u = '/anuncios?page=' + p;
-        if (search) u += '&search=' + encodeURIComponent(search);
-        if (sort) u += '&sort=' + sort + '&dir=' + dir;
-        if (filter) u += '&filter=' + encodeURIComponent(filter);
-        return u;
-      }
-    %>
-    <nav class="mt-3">
-      <ul class="pagination justify-content-center flex-wrap">
-        <li class="page-item <%= page <= 1 ? 'disabled' : '' %>">
-          <a class="page-link" href="<%= pageUrl(page - 1) %>">Anterior</a>
-        </li>
-        <%
-          var start = Math.max(1, page - 3);
-          var end = Math.min(totalPages, page + 3);
-          if (start > 1) { %>
-            <li class="page-item"><a class="page-link" href="<%= pageUrl(1) %>">1</a></li>
-            <% if (start > 2) { %><li class="page-item disabled"><span class="page-link">…</span></li><% }
-          }
-          for (var p = start; p <= end; p++) { %>
-            <li class="page-item <%= p === page ? 'active' : '' %>">
-              <a class="page-link" href="<%= pageUrl(p) %>"><%= p %></a>
-            </li>
-          <% }
-          if (end < totalPages) {
-            if (end < totalPages - 1) { %><li class="page-item disabled"><span class="page-link">…</span></li><% } %>
-            <li class="page-item"><a class="page-link" href="<%= pageUrl(totalPages) %>"><%= totalPages %></a></li>
-          <% } %>
-        <li class="page-item <%= page >= totalPages ? 'disabled' : '' %>">
-          <a class="page-link" href="<%= pageUrl(page + 1) %>">Próxima</a>
-        </li>
-      </ul>
-    </nav>
-  <% } %>
-</div>
+        <script>
+          // Alternador de visualização (planilha x cards) — somente desktop.
+          (function () {
+            var wrap = document.getElementById("itemsWrap");
+            if (!wrap) return;
+            var btnT = document.getElementById("viewBtnTable");
+            var btnC = document.getElementById("viewBtnCards");
 
-<!-- Modal CEP -->
-<div class="modal fade" id="cepModal" tabindex="-1">
-  <div class="modal-dialog">
-    <form class="modal-content" action="/settings/zip" method="post">
-      <div class="modal-header">
-        <h5 class="modal-title"><i class="bi bi-geo-alt"></i> CEP para cálculo de frete</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <label class="form-label">CEP de destino (somente números)</label>
-        <input type="text" name="zipCode" class="form-control" value="<%= zipCode %>" placeholder="01001000" />
-        <small class="text-muted">Usado ao calcular o frete no próximo <strong>Atualizar</strong>.</small>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="submit" class="btn btn-primary">Salvar</button>
-      </div>
-    </form>
-  </div>
-</div>
+            // Copia o estado dos checkboxes de um painel para o outro (por MLB),
+            // para não "perder" a seleção ao trocar de visualização.
+            function mirrorChecks(fromSel, toSel) {
+              var state = {};
+              document.querySelectorAll(fromSel + " .row-check").forEach(function (c) {
+                state[c.value] = c.checked;
+              });
+              document.querySelectorAll(toSel + " .row-check").forEach(function (c) {
+                if (c.value in state) c.checked = state[c.value];
+              });
+            }
 
-<script>
-// Alternador de visualização (planilha x cards) — somente desktop.
-(function () {
-  var wrap = document.getElementById("itemsWrap");
-  if (!wrap) return;
-  var btnT = document.getElementById("viewBtnTable");
-  var btnC = document.getElementById("viewBtnCards");
+            function apply(mode, mirror) {
+              var prev = wrap.getAttribute("data-view");
+              if (mirror && prev && prev !== mode) {
+                if (mode === "cards") mirrorChecks(".view-pane-table", ".view-pane-cards");
+                else mirrorChecks(".view-pane-cards", ".view-pane-table");
+              }
+              wrap.setAttribute("data-view", mode);
+              if (btnT) btnT.classList.toggle("active", mode === "table");
+              if (btnC) btnC.classList.toggle("active", mode === "cards");
+              try { localStorage.setItem("itemsView", mode); } catch (e) { }
+              // Recalcula contagem/visibilidade do botão de "Atualizar seleção".
+              if (typeof window.mhSyncSelectionUI === "function") window.mhSyncSelectionUI();
+            }
 
-  // Copia o estado dos checkboxes de um painel para o outro (por MLB),
-  // para não "perder" a seleção ao trocar de visualização.
-  function mirrorChecks(fromSel, toSel) {
-    var state = {};
-    document.querySelectorAll(fromSel + " .row-check").forEach(function (c) {
-      state[c.value] = c.checked;
-    });
-    document.querySelectorAll(toSel + " .row-check").forEach(function (c) {
-      if (c.value in state) c.checked = state[c.value];
-    });
-  }
+            var saved = "table";
+            try { saved = localStorage.getItem("itemsView") || "table"; } catch (e) { }
+            apply(saved === "cards" ? "cards" : "table", false);
 
-  function apply(mode, mirror) {
-    var prev = wrap.getAttribute("data-view");
-    if (mirror && prev && prev !== mode) {
-      if (mode === "cards") mirrorChecks(".view-pane-table", ".view-pane-cards");
-      else mirrorChecks(".view-pane-cards", ".view-pane-table");
-    }
-    wrap.setAttribute("data-view", mode);
-    if (btnT) btnT.classList.toggle("active", mode === "table");
-    if (btnC) btnC.classList.toggle("active", mode === "cards");
-    try { localStorage.setItem("itemsView", mode); } catch (e) {}
-    // Recalcula contagem/visibilidade do botão de "Atualizar seleção".
-    if (typeof window.mhSyncSelectionUI === "function") window.mhSyncSelectionUI();
-  }
-
-  var saved = "table";
-  try { saved = localStorage.getItem("itemsView") || "table"; } catch (e) {}
-  apply(saved === "cards" ? "cards" : "table", false);
-
-  if (btnT) btnT.addEventListener("click", function () { apply("table", true); });
-  if (btnC) btnC.addEventListener("click", function () { apply("cards", true); });
-})();
-</script>
-<%- include('partials/footer') %>
+            if (btnT) btnT.addEventListener("click", function () { apply("table", true); });
+            if (btnC) btnC.addEventListener("click", function () { apply("cards", true); });
+          })();
+        </script>
+        <%- include('partials/footer') %>

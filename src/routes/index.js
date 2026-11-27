@@ -37,6 +37,11 @@ import { showFrete } from "../controllers/freteController.js";
 import { showMedir } from "../controllers/medirController.js";
 import { showAcao, aplicarAcao } from "../controllers/adminController.js";
 import { limitarPorIp, limiteEnvios, limiteLogin } from "../middleware/rateLimit.js";
+import {
+  classificar,
+  classificarLote,
+  enviarFeedback,
+} from "../controllers/classifierController.js";
 
 const router = Router();
 
@@ -90,5 +95,9 @@ router.post("/regras", saveRules);
 router.post("/simulador", runSimulator);
 router.get("/export", exportExcel);
 router.get("/produtos/export", exportProducts);
+
+router.get("/anuncios/:id/classificacao", classificar);
+router.post("/anuncios/classificacao-lote", classificarLote);
+router.post("/anuncios/:id/classificacao/feedback", enviarFeedback);
 
 export default router;

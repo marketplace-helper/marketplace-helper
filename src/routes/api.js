@@ -3,6 +3,11 @@ import { requireApiAuth } from "../middleware/apiAuth.js";
 import * as api from "../controllers/apiController.js";
 import ml from "../controllers/mlOAuthController.js";
 import { limitarPorIp, limiteEnvios, limiteLogin } from "../middleware/rateLimit.js";
+import {
+  classificar,
+  classificarLote,
+  enviarFeedback,
+} from "../controllers/classifierController.js";
 
 const router = Router();
 
@@ -38,5 +43,9 @@ router.put("/config/cep", a(api.saveZip));
 router.post("/sync", a(api.startSync));
 router.get("/sync/status", a(api.syncStatus));
 router.post("/iot/medidas", a(api.iotMedidas));
+
+router.get("/anuncios/:id/classificacao", a(classificar));
+router.post("/anuncios/classificacao-lote", a(classificarLote));
+router.post("/anuncios/:id/classificacao/feedback", a(enviarFeedback));
 
 export default router;
