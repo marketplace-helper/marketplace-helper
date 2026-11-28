@@ -16,7 +16,6 @@
     "conta:liberar": "node scripts/liberar-conta.js"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1179.0",
     "@prisma/client": "^6.2.1",
     "bcryptjs": "^3.0.3",
     "cookie-session": "^2.1.1",
@@ -27,20 +26,11 @@
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.3",
     "node-cron": "^4.6.0",
-    "onnxruntime-node": "^1.31.1",
     "prisma": "^6.2.1",
     "resend": "^6.38.0",
-    "sqlite": "^5.1.1",
     "swagger-ui-express": "^5.0.1"
   },
   "engines": {
     "node": ">=20"
-  },
-  "allowScripts": {
-    "@prisma/client@6.19.3": true,
-    "@prisma/engines@6.12.0": true,
-    "@scarf/scarf@1.4.0": true,
-    "onnxruntime-node@1.31.1": true,
-    "prisma@6.12.0": true
   }
 }
