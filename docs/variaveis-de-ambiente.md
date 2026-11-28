@@ -12,7 +12,7 @@ Arquivo `.env` na raiz (modelo em `.env.example`). Em produção, as variáveis 
 | `SESSION_SECRET` | Segredo do cookie de sessão (aleatório, estável) — **obrigatório em produção** |
 | `JWT_SECRET` | Segredo dos tokens JWT da API (opcional; usa `SESSION_SECRET` se vazio) |
 | `ENCRYPTION_KEY` | Chave de 64 hex para cifrar os tokens do ML (estável) — **obrigatório em produção** |
-| `DATABASE_URL` | SQLite — local: `file:./dev.db`; produção: `file:/data/prod.db` (volume) |
+| `DATABASE_URL` | PostgreSQL — local: `postgresql://mh:mh@localhost:5432/marketplace_helper?schema=public` (`docker-compose.yml`); Railway: `${{Postgres.DATABASE_URL}}` |
 | `TZ` | Fuso do agendamento (padrão **America/Sao_Paulo**) |
 | `RESEND_API_KEY` | Chave *sending access* do Resend. Vazia rodando local: os e-mails aparecem no terminal |
 | `MAIL_FROM` | Remetente (padrão `Marketplace Helper <onboarding@resend.dev>`) |

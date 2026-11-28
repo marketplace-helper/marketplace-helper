@@ -13,9 +13,9 @@
 - **OAuth no mobile:** o callback não confere a sessão de quem iniciou a autorização; está prevista
   uma página de confirmação.
 - **Agendamento:** o *cron* depende do servidor em execução; a hospedagem precisa manter o processo ligado.
-- **Escala:** SQLite + sincronização e *cron* no mesmo processo da web foram pensados para **uma
-  instância** e poucas dezenas de usuários. Para escalar:
-  - migrar para **PostgreSQL** (com índices compostos por `userId`);
+- **Escala:** sincronização e *cron* no mesmo processo da web foram pensados para **uma
+  instância** e poucas dezenas de usuários. O banco já é PostgreSQL; para escalar:
+  - revisar índices compostos por `userId`;
   - mover a sincronização para uma **fila de *jobs*** com *worker* separado e concorrência controlada
     (hoje o *cron* dispara o sync de todas as contas ao mesmo tempo);
   - guardar o progresso do sync e os limites de tentativa fora da memória;

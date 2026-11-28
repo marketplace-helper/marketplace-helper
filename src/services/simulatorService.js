@@ -60,7 +60,7 @@ export async function estimateFreight(userId, categoryName, title, price) {
     .find((w) => w.length > 3);
   if (kw) {
     const porTitulo = await prisma.item.findMany({
-      where: { userId, frete: { not: null }, titulo: { contains: kw } },
+      where: { userId, frete: { not: null }, titulo: { contains: kw, mode: "insensitive" } },
       select: { frete: true },
     });
     if (porTitulo.length) {

@@ -96,9 +96,9 @@ export function buildItemWhere(userId, search) {
   if (search && search.trim()) {
     const q = search.trim();
     where.OR = [
-      { mlb: { contains: q } },
-      { titulo: { contains: q } },
-      { sku: { contains: q } },
+      { mlb: { contains: q, mode: "insensitive" } },
+      { titulo: { contains: q, mode: "insensitive" } },
+      { sku: { contains: q, mode: "insensitive" } },
     ];
   }
   return where;

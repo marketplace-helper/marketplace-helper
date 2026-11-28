@@ -9,13 +9,16 @@
     "start:prod": "prisma migrate deploy && node prisma/seed/aliquotas.js && node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node --test",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "conta:liberar": "node scripts/liberar-conta.js",
     "mock:anuncios": "node scripts/mock-anuncios.js",
-    "seed:aliquotas": "node prisma/seed/aliquotas.js"
+    "seed:aliquotas": "node prisma/seed/aliquotas.js",
+    "db:migrar-sqlite": "node scripts/sqlite-para-postgres.js"
   },
   "dependencies": {
     "@prisma/client": "^6.2.1",

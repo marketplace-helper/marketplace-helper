@@ -21,7 +21,7 @@ painel com indicadores e *insights*, o que precisa de correção no catálogo.
 
 ## Tecnologias
 
-Node.js (ESM) · Express · EJS + Bootstrap 5 · Prisma + SQLite · Resend (e-mail) · node-cron · JWT ·
+Node.js (ESM) · Express · EJS + Bootstrap 5 · Prisma + PostgreSQL · Resend (e-mail) · node-cron · JWT ·
 hospedagem no Railway. Acompanha uma **landing page** estática em `landing-page/`.
 
 ## Início rápido
@@ -29,6 +29,7 @@ hospedagem no Railway. Acompanha uma **landing page** estática em `landing-page
 ```bash
 npm install
 cp .env.example .env      # preencha SESSION_SECRET e ENCRYPTION_KEY
+npm run db:up             # Postgres no Docker (precisa do Docker Desktop aberto)
 npx prisma migrate deploy
 npm start                 # http://localhost:3333
 ```
