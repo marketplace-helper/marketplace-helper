@@ -102,7 +102,8 @@ marketplace-helper/
 | `ml/webhookService.js` · `syncQueue.js` · `sellerFilter.js` | Notificações do ML, agrupamento em lote e filtro de anúncios do vendedor |
 | `syncService.js` | Orquestração da sincronização e *upsert* dos anúncios; progresso |
 | `itemService.js` | Listagem paginada/ordenada e filtros rápidos dos KPIs (`?filter=`) |
-| `calcService.js` | Lucro/margem (`computeProfit`) e saúde do anúncio (`computeHealth`) |
+| `calcService.js` | Lucro/margem (`calcularCustoProduto`, antigo `computeProfit`) e saúde do anúncio (`computeHealth`) |
+| `tributos/` | Contexto tributário do usuário, escolha das alíquotas vigentes e cálculo de cada tributo |
 | `dashboardService.js` | KPIs, *insights* e frete divergente |
 | `productService.js` | Agrupamento por SKU; custo e medidas em lote; frete cobrado × real |
 | `freteTable.js` | Tabela de frete do ML, cubagem e avaliação de divergência |
@@ -113,15 +114,17 @@ marketplace-helper/
 
 ## Modelo de dados
 
-Definido em `prisma/schema.prisma`. Todas as entidades (exceto `User`) são escopadas a um usuário.
+Definido em `prisma/schema.prisma`. Entidades escopadas a um usuário (exceto `User` e a tabela global `AliquotaTributaria`).
 
 ```
 User 1───1 MlConnection       (tokens OAuth cifrados e status da conexão)
  │   1───1 Settings           (CEP de frete, data da última sincronização)
- │   1───1 BusinessRule       (alíquotas de ICMS, IPI, DIFAL, custo operacional)
+ │   1───1 BusinessRule       (regime, UF, crédito, alíquotas de ICMS, IPI, DIFAL, custo operacional)
  │   1───N Item               (anúncios do vendedor)
                  │
                  1───N ShippingHistory  (histórico de frete por item)
+
+AliquotaTributaria  (global: PIS/Cofins/CBS/IBS e fator do ICMS, com vigência)
 ```
 
 | Entidade | Campos principais | Observações |
@@ -129,7 +132,8 @@ User 1───1 MlConnection       (tokens OAuth cifrados e status da conexão)
 | **User** | `email` (único), `storeName`, `whatsapp`, `passwordHash`, `emailVerifiedAt`, `plano`, `testeAte`, `testeAvisoEm` | Senha com hash bcrypt; `plano`: `TESTE` / `COMPLETO` / `BLOQUEADO` |
 | **MlConnection** | `mlUserId`, `accessToken`, `refreshToken`, `expiresAt`, `status`, `lastRefreshAt`, `lastError` | Tokens cifrados; `status`: `active` / `reconnect_required` / `disconnected` |
 | **Settings** | `zipCode`, `lastSyncAt` | CEP usado no cálculo de frete |
-| **BusinessRule** | `icms`, `ipi`, `difal`, `custoOperacional` | Percentuais (%) |
+| **BusinessRule** | `icms`, `ipi`, `difal`, `custoOperacional`, `regime`, `ufOrigem`, `creditoCompra` | Percentuais (%); `regime` padrão `SIMPLES` |
+| **AliquotaTributaria** | `chave` (única), `tributo`, `aliquota`, `tipo`, `regime`, `vigenciaInicio`, `vigenciaFim`, `uf`, `naoCumulativo`, `somenteDestaque`, `observacao` | Ver [Alíquotas tributárias](regras-de-negocio.md#alíquotas-tributárias-reforma-cbsibs) |
 | **Item** | `mlb`, `sku`, `titulo`, `thumbnail`, `permalink`, `custoProduto`, medidas, `precoDe`, `precoPor`, `frete`, `comissao`, `comissaoPct`, `visitas`, `vendas`, `estoque`, `status`, `full`, `catalogo`, categorias | Único por `(userId, mlb)`; medidas aplicadas por SKU |
 | **ShippingHistory** | `mlb`, `cost`, `capturedAt` | Detecta mudanças de frete |
 

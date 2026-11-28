@@ -46,7 +46,8 @@ Para o front-end React, o app React Native e o dispositivo IoT. Autenticação p
 | GET | `/api/anuncios` | Anúncios (`search`, `sort`, `dir`, `filter`, `page`) |
 | GET | `/api/produtos` | Produtos por SKU |
 | POST | `/api/produtos/:sku/custo` · `/api/produtos/:sku/medidas` | Custo / medidas do SKU |
-| GET/PUT | `/api/regras` | Regras de negócio |
+| GET/PUT | `/api/regras` | Regras de negócio (alíquotas, `regime`, `ufOrigem`, `creditoCompra`; campos novos ausentes no PUT são mantidos) |
+| GET | `/api/tributos/aliquotas?ano=` | Alíquotas aplicadas ao usuário (regime, data, linhas por tributo) |
 | GET | `/api/frete/estimar` | Calculadora de frete por cubagem |
 | GET/PUT | `/api/config` · `/api/config/cep` | CEP e última sincronização |
 | POST/GET | `/api/sync` · `/api/sync/status` | Sincronização e progresso |

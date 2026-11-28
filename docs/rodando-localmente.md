@@ -62,9 +62,11 @@ verdade, `RESEND_API_KEY`, `MAIL_FROM` e `ADMIN_EMAILS`. A lista completa está 
 
 ```bash
 npx prisma migrate deploy
+npm run seed:aliquotas
 ```
 
-Cria o `prisma/dev.db` (SQLite) com todas as migrações aplicadas.
+Cria o `prisma/dev.db` (SQLite) com todas as migrações aplicadas e grava as alíquotas tributárias
+(PIS/Cofins/CBS/IBS).
 
 ## 5. Iniciar
 
@@ -129,12 +131,14 @@ Abre em <http://localhost:8080>. Os botões *Entrar* e *Crie sua conta* usam `wi
 |---|---|
 | `npm start` | Inicia o servidor (`node src/server.js`) |
 | `npm run dev` | Inicia com *watch* (reinício automático ao salvar) |
-| `npm run start:prod` | Aplica as migrações e inicia (usado no deploy) |
+| `npm run start:prod` | Aplica as migrações, grava as alíquotas e inicia (usado no deploy) |
+| `npm run seed:aliquotas` | Grava/atualiza as linhas de `AliquotaTributaria` a partir de `prisma/seed/aliquotas.js` |
 | `npm test` | Roda os testes (`node --test`, pasta `test/`) |
 | `npm run prisma:migrate` | Cria/aplica migrações em desenvolvimento |
 | `npm run prisma:generate` | Regenera o Prisma Client |
 | `npm run prisma:studio` | Abre o Prisma Studio (inspeção visual do banco) |
 | `npm run conta:liberar -- <email>` | Confirma o e-mail e libera o uso completo de uma conta no banco do `.env` |
+| `npm run mock:anuncios -- <email>` | (só local) Grava 19 anúncios fictícios em 14 SKUs na conta, sem precisar do Mercado Livre. Rodar de novo substitui os fictícios (`MLB99…`) |
 
 ## Solução de problemas
 

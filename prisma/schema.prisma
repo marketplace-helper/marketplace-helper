@@ -107,9 +107,40 @@ model BusinessRule {
   ipi              Float    @default(0)
   difal            Float    @default(0)
   custoOperacional Float    @default(0)
+  // Regime tributário: "SIMPLES" | "SIMPLES_HIBRIDO" | "PRESUMIDO" | "REAL".
+  // Padrão SIMPLES: não acrescenta PIS/Cofins/CBS/IBS, então margens antigas não mudam.
+  regime           String   @default("SIMPLES")
+  ufOrigem         String?
+  // Considerar crédito de PIS/Cofins/CBS/IBS na compra (só tributos não cumulativos)
+  creditoCompra    Boolean  @default(false)
   updatedAt        DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Alíquotas com vigência (reforma tributária). Mudanças futuras viram linhas novas,
+// sem alterar código. tipo: "PERCENTUAL" (% sobre a venda) ou "FATOR" (multiplica a
+// alíquota digitada pelo usuário, só para ICMS/ISS). regime "TODOS" vale para qualquer regime.
+model AliquotaTributaria {
+  id              Int       @id @default(autoincrement())
+  chave           String    @unique
+  tributo         String    // "ICMS" | "ISS" | "PIS" | "COFINS" | "CBS" | "IBS"
+  aliquota        Float
+  tipo            String    @default("PERCENTUAL")
+  regime          String    @default("TODOS")
+  vigenciaInicio  DateTime
+  vigenciaFim     DateTime?
+  uf              String?
+  ncm             String?
+  cClassTrib      String?
+  naoCumulativo   Boolean   @default(false)
+  // Aparece no detalhamento, mas não reduz o lucro (ex.: CBS/IBS de teste em 2026)
+  somenteDestaque Boolean   @default(false)
+  observacao      String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([tributo, regime])
 }
 
 // Anuncios do Mercado Livre (por usuario)

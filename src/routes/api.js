@@ -32,6 +32,7 @@ router.post("/produtos/:sku/custo", a(api.saveCusto));
 router.post("/produtos/:sku/medidas", a(api.saveMedidas));
 router.get("/regras", a(api.getRegras));
 router.put("/regras", a(api.saveRegras));
+router.get("/tributos/aliquotas", a(api.aliquotasTributos));
 router.get("/frete/estimar", a(api.estimarFrete));
 router.get("/config", a(api.getConfig));
 router.put("/config/cep", a(api.saveZip));
