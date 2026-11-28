@@ -24,7 +24,8 @@ deploy e aplica as migrações no staging. Cada ambiente tem segredos e volume p
    roda o `postinstall` (`prisma generate`).
 2. Em **Settings → Deploy → Custom Start Command**: `npm run start:prod`.
    Esse script aplica as migrações **a cada inicialização** (e não no *build*, porque o volume só
-   fica disponível com o serviço rodando) e depois sobe o servidor.
+   fica disponível com o serviço rodando), grava as alíquotas tributárias (`prisma/seed/aliquotas.js`,
+   por *upsert*; ver [Impostos](impostos.md#como-atualizar-uma-alíquota)) e depois sobe o servidor.
 
 ## 2. Volume
 

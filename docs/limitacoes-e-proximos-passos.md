@@ -2,6 +2,9 @@
 
 [← Voltar ao README](../README.md)
 
+- **Impostos:** o modelo é por conta, não por produto (sem NCM, ST, monofásico ou alíquota reduzida
+  por SKU); o Simples não tem campo para o DAS; venda interestadual e DIFAL são % fixos. As alíquotas
+  de CBS/IBS de 2027 em diante são estimativas. Detalhes em [Impostos](impostos.md#limitações-atuais).
 - **Vencedor do catálogo:** o KPI "No catálogo" conta anúncios **no** catálogo; saber quem está
   **ganhando** o *buy box* exigiria uma chamada `price_to_win` por item na sincronização.
 - **Medição real (câmera + balança):** `/medir` é uma **simulação** — a web não tem sensor de
