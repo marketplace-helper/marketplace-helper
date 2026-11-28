@@ -2,13 +2,26 @@
   <%- include('partials/head') %>
     <%- include('partials/nav') %>
 
-      <% // Helpers de ordenacao function sortUrl(col) { var d=(sort===col && dir==='asc' ) ? 'desc' : 'asc' ; var
-        p='/anuncios?sort=' + col + '&dir=' + d; if (search) p +='&search=' + encodeURIComponent(search); if (filter) p
-        +='&filter=' + encodeURIComponent(filter); return p; } function arrow(col) { if (sort !==col)
-        return '<span class="sort-ico">↕</span>' ; return dir==='asc' ? '<span class="sort-ico active">▲</span>'
-        : '<span class="sort-ico active">▼</span>' ; } // Link oficial do anuncio: usa o permalink salvo; senao,
-        fallback por MLB function mlUrl(it) { if (it.permalink) return it.permalink; var
-        digits=String(it.mlb).replace(/\D/g, '' ); return 'https://produto.mercadolivre.com.br/MLB-' + digits; } %>
+<%
+  // Helpers de ordenacao
+  function sortUrl(col) {
+    var d = (sort === col && dir === 'asc') ? 'desc' : 'asc';
+    var p = '/anuncios?sort=' + col + '&dir=' + d;
+    if (search) p += '&search=' + encodeURIComponent(search);
+    if (filter) p += '&filter=' + encodeURIComponent(filter);
+    return p;
+  }
+  function arrow(col) {
+    if (sort !== col) return '<span class="sort-ico">↕</span>';
+    return dir === 'asc' ? '<span class="sort-ico active">▲</span>' : '<span class="sort-ico active">▼</span>';
+  }
+  // Link oficial do anuncio: usa o permalink salvo; senao, fallback por MLB
+  function mlUrl(it) {
+    if (it.permalink) return it.permalink;
+    var digits = String(it.mlb).replace(/\D/g, '');
+    return 'https://produto.mercadolivre.com.br/MLB-' + digits;
+  }
+%>
 
         <div class="container-fluid py-3 px-md-4" id="itemsWrap" data-view="table">
 
