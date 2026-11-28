@@ -96,18 +96,19 @@ Use os *backups* do serviço Postgres no Railway. Para uma cópia manual: `pg_du
 
 ## Virada de SQLite para Postgres (uma vez por ambiente)
 
-Até 2026-11 o banco era SQLite num volume (`/data/prod.db`). Para virar um ambiente:
+Até 2026-11 o banco era SQLite num volume (`/data/prod.db`). A cópia roda sozinha no primeiro boot
+com Postgres: o `start:prod` chama `scripts/sqlite-para-postgres.js --auto`, que lê o caminho de
+`SQLITE_MIGRAR_DE` e só copia se o Postgres estiver vazio (nos boots seguintes, só avisa e segue).
+Como o serviço tem volume, o Railway para o container antigo antes de subir o novo, então ninguém
+grava no SQLite durante a cópia.
 
-1. Crie o serviço Postgres no ambiente (seção 2), **sem** mudar ainda o `DATABASE_URL` do App.
-2. Baixe uma cópia do `prod.db` do volume e guarde como backup.
-3. Pare o App (para ninguém gravar no SQLite durante a cópia) e baixe o `prod.db` de novo, já parado.
-4. Na sua máquina, com o `DATABASE_URL` apontando para a `DATABASE_PUBLIC_URL` do Postgres novo:
+1. Crie o serviço Postgres no ambiente (seção 2).
+2. No App, **sem redeploy** (o código em produção ainda é SQLite):
+   `DATABASE_URL=${{Postgres.DATABASE_URL}}` e `SQLITE_MIGRAR_DE=/data/prod.db`.
+3. Faça o deploy da versão com Postgres (merge na branch do ambiente). Nos logs devem aparecer
+   `Cópia concluída e conferida.` e as contagens de cada tabela.
+4. Confira login, Anúncios, Regras e Dashboard.
+5. Remova `SQLITE_MIGRAR_DE`. Mantenha o volume por alguns dias como *rollback*; depois, remova-o.
 
-   ```bash
-   npx prisma migrate deploy
-   npm run db:migrar-sqlite -- caminho/do/prod.db
-   ```
-
-5. Troque o `DATABASE_URL` do App para `${{Postgres.DATABASE_URL}}` e faça o deploy da versão com Postgres.
-6. Confira login, Anúncios, Regras e Dashboard. Mantenha o volume antigo por alguns dias como
-   *rollback*; depois, remova-o.
+*Rollback:* volte o `DATABASE_URL` para `file:/data/prod.db` e faça *rollback* para o último deploy
+anterior à virada. O SQLite não é alterado pela cópia (é aberto só para leitura).

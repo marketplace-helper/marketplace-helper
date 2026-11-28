@@ -6,7 +6,7 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "start:prod": "prisma migrate deploy && node prisma/seed/aliquotas.js && node src/server.js",
+    "start:prod": "prisma migrate deploy && node scripts/sqlite-para-postgres.js --auto && node prisma/seed/aliquotas.js && node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node --test",
     "db:up": "docker compose up -d --wait",
@@ -36,6 +36,6 @@
     "swagger-ui-express": "^5.0.1"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13"
   }
 }

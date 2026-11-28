@@ -6,6 +6,11 @@
 // Antes: o Postgres de destino precisa estar com as migrations aplicadas
 // (npx prisma migrate deploy) e VAZIO. O script se recusa a gravar por cima.
 //
+// Modo automático (--auto), usado no start:prod do Railway: lê o caminho da
+// variável SQLITE_MIGRAR_DE. Sem a variável, não faz nada. Se o Postgres já tem
+// dados (boots seguintes), só avisa e segue. Assim a virada acontece sozinha no
+// primeiro deploy com Postgres, lendo o SQLite do volume.
+//
 // Como funciona: lê cada tabela do SQLite com o node:sqlite (Node 22.5+), converte
 // cada coluna pelo tipo do schema.prisma (no SQLite o Prisma grava datas como
 // milissegundos e booleanos como 0/1) e insere no Postgres na ordem das chaves
@@ -30,11 +35,14 @@ const ORDEM = [
 ];
 const LOTE = 500;
 
-const caminho = process.argv[2];
+const AUTO = process.argv.includes("--auto");
+const caminho = AUTO ? process.env.SQLITE_MIGRAR_DE : process.argv[2];
 if (!caminho) {
+  if (AUTO) process.exit(0); // virada não configurada: nada a fazer
   console.error("Uso: npm run db:migrar-sqlite -- caminho/do/banco.db");
   process.exit(1);
 }
+if (AUTO) console.log(`[migrar-sqlite] SQLITE_MIGRAR_DE=${caminho}`);
 if (!fs.existsSync(caminho)) {
   console.error(`Arquivo não encontrado: ${caminho}`);
   process.exit(1);
@@ -80,8 +88,19 @@ function converter(campo, v) {
   }
 }
 
-const sqlite = new DatabaseSync(caminho, { readOnly: true });
 const prisma = new PrismaClient();
+
+// Modo automático: destino com dados = virada já feita num boot anterior.
+if (AUTO) {
+  const [{ n }] = await prisma.$queryRawUnsafe(`SELECT COUNT(*)::int AS n FROM "User"`);
+  if (n > 0) {
+    console.log(`[migrar-sqlite] Postgres já tem ${n} usuário(s); cópia já feita, pulando.`);
+    await prisma.$disconnect();
+    process.exit(0);
+  }
+}
+
+const sqlite = new DatabaseSync(caminho, { readOnly: true });
 
 const tabelasSqlite = new Set(
   sqlite.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map((r) => r.name),
