@@ -1,0 +1,20 @@
+# Garante que só a branch dev é mergeada na main.
+# O job "origem-do-pr" é um check obrigatório no ruleset da main.
+name: Origem do PR
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  origem-do-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: PR para a main precisa vir da dev
+        run: |
+          if [ "${{ github.head_ref }}" != "dev" ] || [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+            echo "::error::PRs para a main só podem vir da branch dev deste repositório (veio de '${{ github.head_ref }}'). Abra o PR para a dev."
+            exit 1
+          fi
+          echo "OK: PR vindo da dev."
