@@ -6,6 +6,9 @@
 
 - **Node.js 20 ou superior** (desenvolvido em Node 24) — <https://nodejs.org>.
 - **Git**.
+- **Docker Desktop** — <https://www.docker.com/products/docker-desktop/>. O banco (PostgreSQL)
+  roda num container definido no `docker-compose.yml`. No Windows com WSL, ative a integração em
+  *Settings → Resources → WSL integration*.
 - Para conectar uma conta do Mercado Livre: as credenciais do **app da plataforma** no ML
   (`ML_APP_ID`, `ML_APP_SECRET`), com a Redirect URI `http://localhost:3333/api/ml/oauth/callback`
   cadastrada e **PKCE** habilitado. Ver [Integração com o Mercado Livre](integracao-mercado-livre.md).
@@ -46,7 +49,7 @@ Mínimo para subir:
 PORT=3333
 SESSION_SECRET=<valor_gerado>
 ENCRYPTION_KEY=<valor_gerado>
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="postgresql://mh:mh@localhost:5432/marketplace_helper?schema=public"
 APP_URL=http://localhost:3333
 ```
 
@@ -60,13 +63,32 @@ verdade, `RESEND_API_KEY`, `MAIL_FROM` e `ADMIN_EMAILS`. A lista completa está 
 
 ## 4. Preparar o banco
 
+Com o Docker Desktop aberto:
+
 ```bash
+npm run db:up            # sobe o Postgres (porta 5432) e espera ficar pronto
 npx prisma migrate deploy
 npm run seed:aliquotas
 ```
 
-Cria o `prisma/dev.db` (SQLite) com todas as migrações aplicadas e grava as alíquotas tributárias
-(PIS/Cofins/CBS/IBS).
+Cria as tabelas no Postgres local e grava as alíquotas tributárias (PIS/Cofins/CBS/IBS). Os dados
+ficam no volume `pgdata` do Docker e sobrevivem a reinícios. Comandos úteis:
+
+- `npm run db:down` para o banco (sem apagar os dados);
+- `docker compose down -v` apaga o banco inteiro, para começar do zero;
+- `npx prisma studio` abre uma interface para ver e editar as tabelas.
+
+### Vindo do SQLite
+
+Se você já tinha um `prisma/dev.db` com dados, troque o `DATABASE_URL` do seu `.env` pelo de cima,
+suba o banco, rode `npx prisma migrate deploy` e copie os dados:
+
+```bash
+npm run db:migrar-sqlite -- prisma/dev.db
+```
+
+O script exige **Node 22.5+** (usa o `node:sqlite`), só grava num Postgres vazio e confere a
+contagem de linhas de cada tabela no fim.
 
 ## 5. Iniciar
 
@@ -78,7 +100,7 @@ npm start        # ou: npm run dev (reinicia ao salvar)
 - Documentação da API (Swagger): <http://localhost:3333/api/docs>
 
 > **No Windows**, um duplo clique em **`INICIAR.BAT`** faz os passos 2 a 5: instala as dependências
-> (na primeira vez), prepara o banco, libera a porta 3333 e abre o navegador.
+> (na primeira vez), sobe o Postgres no Docker, prepara o banco, libera a porta 3333 e abre o navegador.
 
 ## 6. Primeiro uso
 

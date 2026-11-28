@@ -1,0 +1,25 @@
+# Postgres para desenvolvimento local.
+#   npm run db:up    -> sobe o banco (porta 5432) e espera ele ficar pronto
+#   npm run db:down  -> para o banco (os dados ficam no volume "pgdata")
+# Para apagar tudo e começar do zero: docker compose down -v
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: marketplace-helper-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mh
+      POSTGRES_PASSWORD: mh
+      POSTGRES_DB: marketplace_helper
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mh -d marketplace_helper"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:

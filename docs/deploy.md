@@ -2,11 +2,9 @@
 
 [← Voltar ao README](../README.md)
 
-A aplicação precisa de: **processo sempre ligado** (o *cron* roda dentro do servidor), **disco
-persistente** (o banco SQLite é um arquivo) e **HTTPS com domínio público** (exigido pela Redirect URI
+A aplicação precisa de: **processo sempre ligado** (o *cron* roda dentro do servidor), um **banco PostgreSQL** e **HTTPS com domínio público** (exigido pela Redirect URI
 do Mercado Livre). O **[Railway](https://railway.com)** atende aos três. Evite planos que hibernam o
-app ou não têm disco persistente (Render *free*, Vercel, Netlify): neles o *cron* não dispara e o
-banco é apagado a cada reinício.
+app (Render *free*, Vercel, Netlify): neles o *cron* não dispara.
 
 ## Ambientes e fluxo de branches
 
@@ -16,20 +14,21 @@ banco é apagado a cada reinício.
 | `staging` | `dev` | domínio `*.up.railway.app` gerado pelo Railway |
 
 Fluxo: *feature* → PR para `dev` → testar no staging → PR `dev` → `main`. O merge em `dev` já faz
-deploy e aplica as migrações no staging. Cada ambiente tem segredos e volume próprios.
+deploy e aplica as migrações no staging. Cada ambiente tem segredos e banco Postgres próprios.
 
 ## 1. Criar o serviço
 
 1. No Railway: **New Project → Deploy from GitHub repo** e selecione o repositório. O `npm install`
    roda o `postinstall` (`prisma generate`).
 2. Em **Settings → Deploy → Custom Start Command**: `npm run start:prod`.
-   Esse script aplica as migrações **a cada inicialização** (e não no *build*, porque o volume só
-   fica disponível com o serviço rodando), grava as alíquotas tributárias (`prisma/seed/aliquotas.js`,
+   Esse script aplica as migrações **a cada inicialização**, grava as alíquotas tributárias (`prisma/seed/aliquotas.js`,
    por *upsert*; ver [Impostos](impostos.md#como-atualizar-uma-alíquota)) e depois sobe o servidor.
 
-## 2. Volume
+## 2. Banco (PostgreSQL)
 
-**Add Volume** com *mount path* **`/data`**. É onde fica o `prod.db`; sem ele, os dados se perdem a cada deploy.
+No mesmo projeto e ambiente: **+ Create → Database → PostgreSQL**. No serviço do App, o
+`DATABASE_URL` referencia a variável do Postgres (`${{Postgres.DATABASE_URL}}`), que usa a rede
+privada do Railway.
 
 ## 3. Variáveis
 
@@ -37,7 +36,7 @@ Em **Variables** (segredos **novos**, diferentes dos locais e de outros ambiente
 
 ```
 NODE_ENV=production
-DATABASE_URL=file:/data/prod.db
+DATABASE_URL=${{Postgres.DATABASE_URL}}
 APP_URL=https://<domínio>
 SESSION_SECRET=<gerado>
 JWT_SECRET=<gerado>
@@ -77,8 +76,8 @@ All migrations have been successfully applied.
 ```
 
 Se aparecer `Variáveis de ambiente obrigatórias em produção ausentes`, falta `SESSION_SECRET` e/ou
-`ENCRYPTION_KEY`. Se os dados somem após um deploy, o `DATABASE_URL` não aponta para o volume ou o
-volume não está em `/data`.
+`ENCRYPTION_KEY`. Se aparecer `the URL must start with the protocol postgresql://`, o `DATABASE_URL`
+ainda aponta para o SQLite antigo.
 
 ## Landing page
 
@@ -92,4 +91,24 @@ Por ser estática, também pode ir para GitHub Pages, Netlify ou Vercel.
 
 ## Backup
 
-O banco inteiro é o arquivo `/data/prod.db`. Use os *backups* de volume do Railway ou baixe o arquivo periodicamente.
+Use os *backups* do serviço Postgres no Railway. Para uma cópia manual: `pg_dump` com a
+`DATABASE_PUBLIC_URL` do serviço.
+
+## Virada de SQLite para Postgres (uma vez por ambiente)
+
+Até 2026-11 o banco era SQLite num volume (`/data/prod.db`). A cópia roda sozinha no primeiro boot
+com Postgres: o `start:prod` chama `scripts/sqlite-para-postgres.js --auto`, que lê o caminho de
+`SQLITE_MIGRAR_DE` e só copia se o Postgres estiver vazio (nos boots seguintes, só avisa e segue).
+Como o serviço tem volume, o Railway para o container antigo antes de subir o novo, então ninguém
+grava no SQLite durante a cópia.
+
+1. Crie o serviço Postgres no ambiente (seção 2).
+2. No App, **sem redeploy** (o código em produção ainda é SQLite):
+   `DATABASE_URL=${{Postgres.DATABASE_URL}}` e `SQLITE_MIGRAR_DE=/data/prod.db`.
+3. Faça o deploy da versão com Postgres (merge na branch do ambiente). Nos logs devem aparecer
+   `Cópia concluída e conferida.` e as contagens de cada tabela.
+4. Confira login, Anúncios, Regras e Dashboard.
+5. Remova `SQLITE_MIGRAR_DE`. Mantenha o volume por alguns dias como *rollback*; depois, remova-o.
+
+*Rollback:* volte o `DATABASE_URL` para `file:/data/prod.db` e faça *rollback* para o último deploy
+anterior à virada. O SQLite não é alterado pela cópia (é aberto só para leitura).

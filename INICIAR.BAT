@@ -10,23 +10,48 @@ echo.
 
 REM --- Instala dependencias na primeira vez ---
 if not exist "node_modules\" (
-    echo [1/4] Instalando dependencias ^(primeira vez^)...
+    echo [1/5] Instalando dependencias ^(primeira vez^)...
     call npm install
 ) else (
-    echo [1/4] Dependencias ja instaladas.
+    echo [1/5] Dependencias ja instaladas.
+)
+
+REM --- Sobe o Postgres local (Docker Desktop precisa estar aberto) ---
+echo [2/5] Subindo o banco de dados ^(Postgres no Docker^)...
+findstr /r /c:"^DATABASE_URL=.*file:" .env >nul 2>&1
+if not errorlevel 1 (
+    echo.
+    echo ERRO: seu .env ainda aponta para o SQLite ^(DATABASE_URL="file:..."^).
+    echo Troque pela linha DATABASE_URL do .env.example e rode de novo.
+    pause
+    exit /b 1
+)
+call docker compose up -d --wait >nul 2>&1
+if errorlevel 1 (
+    echo.
+    echo ERRO: nao foi possivel subir o Postgres.
+    echo Abra o Docker Desktop, espere ele ficar "running" e rode de novo.
+    pause
+    exit /b 1
 )
 
 REM --- Garante client Prisma e banco atualizados (sempre) ---
-echo [2/4] Atualizando banco de dados...
+echo [3/5] Atualizando banco de dados...
 call npx prisma generate >nul 2>&1
-call npx prisma migrate deploy >nul 2>&1
+call npx prisma migrate deploy
+if errorlevel 1 (
+    echo.
+    echo ERRO ao aplicar as migrations. Veja a mensagem acima.
+    pause
+    exit /b 1
+)
 
 REM --- Libera a porta 3333 (encerra servidor antigo preso, se houver) ---
-echo [3/4] Liberando a porta 3333...
+echo [4/5] Liberando a porta 3333...
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3333" ^| findstr LISTENING') do taskkill /F /PID %%a >nul 2>&1
 
 REM --- Inicia o servidor ---
-echo [4/4] Iniciando servidor na porta 3333...
+echo [5/5] Iniciando servidor na porta 3333...
 start "Servidor ML" cmd /k "npm start"
 
 REM --- Espera o servidor subir ---

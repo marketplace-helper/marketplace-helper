@@ -5,7 +5,7 @@
 ## Visão geral
 
 Aplicação **Node.js / Express** com renderização no servidor (**EJS + Bootstrap 5**), persistência
-via **Prisma ORM** sobre **SQLite** e padrão **MVC** complementado por uma **camada de serviços**.
+via **Prisma ORM** sobre **PostgreSQL** e padrão **MVC** complementado por uma **camada de serviços**.
 É multiusuário, com isolamento de dados por `userId`. Além das páginas, expõe uma **API JSON** em
 `/api` que reaproveita os mesmos serviços.
 
@@ -16,7 +16,7 @@ Requisição HTTP
  [ Rotas ] ──► [ Middleware (auth web / JWT / rate limit) ] ──► [ Controllers ]
                                                                      │
                                                                      ▼
-                                                               [ Services ]  ◄──► [ Prisma / SQLite ]
+                                                               [ Services ]  ◄──► [ Prisma / Postgres ]
                                                                      │
                                                     ┌────────────────┼────────────────┐
                                                     ▼                ▼                ▼
@@ -33,8 +33,9 @@ Requisição HTTP
 
 - **SSR com EJS em vez de SPA.** A aplicação é orientada a formulários e tabelas densas, com pouca
   interatividade no cliente; o SSR elimina o *build* de *frontend* e entrega HTML pronto.
-- **SQLite via Prisma.** *Zero-config* (um arquivo), com *schema* declarativo e migrações versionadas.
-  Migrar para PostgreSQL exige apenas trocar o *datasource*.
+- **PostgreSQL via Prisma.** *Schema* declarativo e migrações versionadas. Começou em SQLite e
+  migrou para Postgres em 2026-11 (backup gerenciado, acesso externo, deploy sem volume e caminho
+  para várias instâncias). Localmente roda no Docker (`docker-compose.yml`).
 - **Isolamento por `userId`.** Toda entidade referencia o usuário dono e toda consulta é escopada.
 - **Cálculos derivados sob demanda.** Margem, lucro e "Custo ML" não são persistidos: são calculados
   na leitura, então uma mudança de alíquota reflete na hora, sem recomputar o catálogo.
@@ -49,7 +50,7 @@ Requisição HTTP
 | Runtime | **Node.js ≥ 20** (ESM) | Execução |
 | Servidor web | **Express 4** | Roteamento e *middleware* |
 | Templates | **EJS** + **Bootstrap 5** (CDN) + **Bootstrap Icons** + **Inter** | Renderização e UI |
-| ORM / banco | **Prisma 6** + **SQLite** | Persistência e migrações |
+| ORM / banco | **Prisma 6** + **PostgreSQL** | Persistência e migrações |
 | Autenticação | **bcryptjs** + **cookie-session** (web) · **jsonwebtoken** (API) | Login e sessão |
 | Criptografia | **node:crypto** (AES-256-GCM) | Tokens do ML em repouso |
 | E-mail | **Resend** | Confirmação, recuperação de senha, avisos aos admins |
@@ -64,7 +65,7 @@ Requisição HTTP
 marketplace-helper/
 ├── prisma/
 │   ├── schema.prisma          # Modelo de dados
-│   └── migrations/            # Migrações versionadas (dev.db não é versionado)
+│   └── migrations/            # Migrações versionadas
 ├── public/
 │   ├── css/style.css          # Tema (ver design.md)
 │   └── js/                    # app.js (UI), frete-calc.js (calculadora), medir.js (medição simulada)
