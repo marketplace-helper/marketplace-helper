@@ -167,7 +167,7 @@ export const openapiSpec = {
       },
     },
     "/regras": {
-      get: { tags: ["Dados"], summary: "Regras de negócio (alíquotas)", security: bearer, responses: { 200: json({ icms: 12, ipi: 0, difal: 0, custoOperacional: 3 }) } },
+      get: { tags: ["Dados"], summary: "Regras de negócio (alíquotas). icmsInternoPorUf sugere o ICMS pela UF de origem (Presumido/Real)", security: bearer, responses: { 200: json({ icms: 18, ipi: 0, difal: 0, custoOperacional: 3, regime: "REAL", ufOrigem: "SP", creditoCompra: false, icmsInternoPorUf: { SP: 18, RJ: 22 } }) } },
       put: { tags: ["Dados"], summary: "Atualiza as regras de negócio", security: bearer, requestBody: { required: true, content: { "application/json": { example: { icms: 12, ipi: 0, difal: 0, custoOperacional: 3 } } } }, responses: { 200: json({ ok: true, icms: 12, ipi: 0, difal: 0, custoOperacional: 3 }) } },
     },
     "/frete/estimar": {

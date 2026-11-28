@@ -11,6 +11,8 @@ import { freteEstimado } from "../services/freteTable.js";
 import { runSync, getSyncState, getSettings, updateZipCode } from "../services/syncService.js";
 import { getAuthStatus } from "../services/mlAuth.js";
 import { criarContextoTributario } from "../services/tributos/contexto.js";
+import { carregarAliquotas } from "../services/tributos/aliquotaRepo.js";
+import { icmsInternoPorUf } from "../services/tributos/icmsInterno.js";
 import { buildProductsWorkbook } from "../services/exportService.js";
 import { situacaoDoPlano, MSG_BLOQUEADO } from "../services/acesso/plano.js";
 import { config } from "../config/env.js";
@@ -103,8 +105,10 @@ export async function saveMedidas(req, res) {
   res.json({ ok: true, ...r });
 }
 
+// icmsInternoPorUf: alíquota interna modal de cada UF, para sugerir o ICMS (Presumido/Real).
 export async function getRegras(req, res) {
-  res.json(await getBusinessRules(req.user.id));
+  const [rules, linhas] = await Promise.all([getBusinessRules(req.user.id), carregarAliquotas()]);
+  res.json({ ...rules, icmsInternoPorUf: icmsInternoPorUf(linhas) });
 }
 
 export async function saveRegras(req, res) {

@@ -3,6 +3,7 @@ import { getAuthStatus } from "../services/mlAuth.js";
 import { calcularCustoProduto } from "../services/calcService.js";
 import { criarContextoTributario, montarContexto } from "../services/tributos/contexto.js";
 import { carregarAliquotas } from "../services/tributos/aliquotaRepo.js";
+import { icmsInternoPorUf } from "../services/tributos/icmsInterno.js";
 import { ANOS_SIMULAVEIS, REGIMES, REGIME_LABEL, UFS } from "../services/tributos/constantes.js";
 
 // Produto didático usado no exemplo da tela.
@@ -32,6 +33,7 @@ export async function showRules(req, res) {
     message: req.query.message || null,
     exemplo: EXEMPLO,
     exemplos,
+    icmsInternoPorUf: icmsInternoPorUf(linhas),
   });
 }
 

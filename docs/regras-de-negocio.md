@@ -100,6 +100,12 @@ O **frete cobrado** é o `Item.frete` vindo da API. Δ positivo = real acima do 
 - **Calculadora de Frete** (`/frete`): cubagem + tabela oficial do ML (MercadoLíder / reputação
   verde / sem reputação), calculada no cliente (`public/js/frete-calc.js`).
 - **Regras** (`/regras`): alíquotas, com exemplo dinâmico usando os valores do usuário.
+  No Presumido e no Real, escolher a **UF de origem** preenche o ICMS com a alíquota interna modal
+  do estado (linhas `ICMS_INTERNO` de `AliquotaTributaria`, uma por UF, com a base legal na
+  observação). É só sugestão: o valor continua editável, abrir a tela não muda nada e o cálculo usa o
+  que foi salvo. Ao mudar o regime para Presumido/Real, o ICMS só é preenchido se estiver vazio ou 0.
+  Venda para outro estado costuma ter 4%, 7% ou 12% (fora do escopo por enquanto). As 27 alíquotas
+  precisam ser conferidas por um contador; `GET /api/regras` devolve o mesmo mapa em `icmsInternoPorUf`.
 - **Simulador** (`/simulador`): a partir de título e preço, prediz a categoria e compara comissão,
   frete e retorno no **Clássico** e no **Premium**.
 - **Autorização** (`/auth`): conectar/desconectar a conta do Mercado Livre e status da conexão.
