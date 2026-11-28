@@ -1,0 +1,24 @@
+<%#
+  Seletor "calcular com as alíquotas de": Hoje ou um ano simulado.
+  Parâmetros: action (URL do GET), ano (null = hoje), params (outros campos da query a manter).
+%>
+<% var _params = (typeof params !== 'undefined' && params) || {}; %>
+<form method="get" action="<%= action %>" class="d-flex align-items-center gap-2 mb-2">
+  <% Object.keys(_params).forEach(function (k) { if (_params[k]) { %>
+    <input type="hidden" name="<%= k %>" value="<%= _params[k] %>" />
+  <% } }); %>
+  <label for="anoTributario" class="small text-muted mb-0"><i class="bi bi-calendar3"></i> Alíquotas de</label>
+  <select id="anoTributario" name="ano" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
+    <option value="" <%= ano ? '' : 'selected' %>>Hoje</option>
+    <% ANOS_SIMULAVEIS.forEach(function (a) { %>
+      <option value="<%= a %>" <%= ano === a ? 'selected' : '' %>><%= a %></option>
+    <% }); %>
+  </select>
+  <noscript><button class="btn btn-sm btn-outline-secondary" type="submit">Aplicar</button></noscript>
+</form>
+<% if (ano) { %>
+  <div class="alert alert-warning py-2 small mb-3">
+    <i class="bi bi-exclamation-triangle"></i>
+    Simulação de <%= ano %> com alíquotas estimadas — confira com seu contador.
+  </div>
+<% } %>
