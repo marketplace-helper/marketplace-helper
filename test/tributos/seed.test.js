@@ -18,10 +18,10 @@ test("nenhuma linha de PIS/COFINS/CBS/IBS para SIMPLES", () => {
   assert.equal(LINHAS_ALIQUOTAS.filter((l) => l.regime === "SIMPLES").length, 0);
 });
 
-test("vigências do mesmo tributo+regime não se sobrepõem", () => {
+test("vigências do mesmo tributo+regime+UF não se sobrepõem", () => {
   const grupos = new Map();
   for (const l of LINHAS_ALIQUOTAS) {
-    const k = `${l.tributo}:${l.regime}`;
+    const k = `${l.tributo}:${l.regime}:${l.uf || ""}`;
     if (!grupos.has(k)) grupos.set(k, []);
     grupos.get(k).push(l);
   }

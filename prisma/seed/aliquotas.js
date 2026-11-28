@@ -31,6 +31,24 @@ function linhas({ tributo, regimes, de, ate = null, aliquota, ...flags }) {
   }));
 }
 
+// Alíquota interna modal de ICMS de uma UF (sugestão do campo ICMS em Regras; fora do cálculo).
+// `desde` "2000-01-01" quando a fonte não traz a data de início.
+function icmsInterno(uf, aliquota, desde, lei) {
+  return {
+    chave: `ICMS_INTERNO:${uf}:${desde}`,
+    tributo: "ICMS_INTERNO",
+    regime: "TODOS",
+    uf,
+    aliquota,
+    tipo: "PERCENTUAL",
+    vigenciaInicio: new Date(`${desde}T00:00:00-03:00`),
+    vigenciaFim: null,
+    naoCumulativo: false,
+    somenteDestaque: false,
+    observacao: `Alíquota interna modal (sugestão em Regras). ${lei}. Conferir com contador.`,
+  };
+}
+
 const CBS_IBS = ["PRESUMIDO", "REAL", "SIMPLES_HIBRIDO"];
 const nc = { naoCumulativo: true };
 
@@ -64,6 +82,36 @@ export const LINHAS_ALIQUOTAS = [
   ...linhas({ tributo: "ICMS", regimes: ["TODOS"], de: 2031, ate: 2031, aliquota: 0.7, tipo: "FATOR" }),
   ...linhas({ tributo: "ICMS", regimes: ["TODOS"], de: 2032, ate: 2032, aliquota: 0.6, tipo: "FATOR" }),
   ...linhas({ tributo: "ICMS", regimes: ["TODOS"], de: 2033, aliquota: 0, tipo: "FATOR" }),
+
+  // ICMS interno modal por UF. Fonte: tabela da Barbieri Advogados (atualizada nov/2026),
+  // que cita a lei de cada estado. As fontes divergem em MA, BA, RO, PI e SE.
+  icmsInterno("AC", 19, "2023-04-01", "LC 55/1997 (LC 422/2022)"),
+  icmsInterno("AL", 20.5, "2026-04-01", "Lei 5.900/1996 (Lei 9.776/2025)"),
+  icmsInterno("AP", 18, "2000-01-01", "Lei 400/1997 (Lei 1.949/2015)"),
+  icmsInterno("AM", 20, "2023-04-01", "LC 19/1997 (LCs 242/2022 e 244/2023)"),
+  icmsInterno("BA", 20.5, "2024-02-01", "Lei 7.014/1996 (Lei 14.629/2023)"),
+  icmsInterno("CE", 20, "2000-01-01", "Lei 12.670/1996 (Lei 18.305/2023)"),
+  icmsInterno("DF", 20, "2024-01-01", "Lei 1.254/1996 (Lei 7.326/2023)"),
+  icmsInterno("ES", 17, "2000-01-01", "Sefaz-ES"),
+  icmsInterno("GO", 19, "2024-04-01", "Lei 11.651/1991 (Lei 22.460/2023)"),
+  icmsInterno("MA", 23, "2025-02-23", "Lei 7.799/2002 (Lei 12.426/2024)"),
+  icmsInterno("MT", 17, "2000-01-01", "Lei 7.098/1998"),
+  icmsInterno("MS", 17, "2000-01-01", "Lei 1.810/1997 (Lei 3.477/2007)"),
+  icmsInterno("MG", 18, "2000-01-01", "RICMS/MG (Decreto 48.589/2023)"),
+  icmsInterno("PA", 19, "2023-03-01", "Lei 5.530/1989 (Lei 9.755/2022)"),
+  icmsInterno("PB", 20, "2024-01-01", "Lei 6.379/1996 (Lei 12.788/2023)"),
+  icmsInterno("PR", 19.5, "2024-03-18", "Lei 11.580/1996 (Lei 21.850/2023)"),
+  icmsInterno("PE", 20.5, "2024-01-01", "Lei 15.730/2016 (Lei 18.305/2023)"),
+  icmsInterno("PI", 22.5, "2025-04-01", "Lei 4.257/1989 (Lei 8.558/2024)"),
+  icmsInterno("RJ", 22, "2024-03-20", "Lei 2.657/1996 (Lei 10.253/2023) + 2 pontos do FECP (LC 210/2023)"),
+  icmsInterno("RN", 20, "2025-03-01", "Lei 6.968/1996 (Lei 11.999/2024)"),
+  icmsInterno("RS", 17, "2000-01-01", "Governo do RS"),
+  icmsInterno("RO", 19.5, "2024-01-12", "Lei 688/1996 (Lei 5.634/2023)"),
+  icmsInterno("RR", 20, "2023-03-30", "Lei 59/1993 (Lei 1.767/2022)"),
+  icmsInterno("SC", 17, "2000-01-01", "RICMS/SC, art. 26, I"),
+  icmsInterno("SP", 18, "2000-01-01", "RICMS/SP, art. 52, I"),
+  icmsInterno("SE", 19, "2023-04-01", "Lei 3.796/1996 (Lei 9.176/2023)"),
+  icmsInterno("TO", 20, "2000-01-01", "Lei 1.287/2001 (Lei 4.141/2023)"),
 ];
 
 async function main() {

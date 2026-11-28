@@ -13,6 +13,8 @@ const toTime = (v) => (v instanceof Date ? v.getTime() : new Date(v).getTime());
 
 function vale(linha, { regime, data, uf }) {
   if (linha.ncm || linha.cClassTrib) return false;
+  // Alíquota interna por UF só sugere o ICMS em Regras (tributos/icmsInterno.js).
+  if (linha.tributo === "ICMS_INTERNO") return false;
   if (linha.regime !== regime && linha.regime !== "TODOS") return false;
   if (linha.uf && linha.uf !== uf) return false;
   const t = data.getTime();

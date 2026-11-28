@@ -10,7 +10,8 @@ export const REGIME_LABEL = {
   REAL: "Lucro Real",
 };
 
-export const TRIBUTOS = ["ICMS", "ISS", "PIS", "COFINS", "CBS", "IBS"];
+// ICMS_INTERNO: alíquota interna modal por UF, só sugestão em Regras (fora do cálculo).
+export const TRIBUTOS = ["ICMS", "ISS", "PIS", "COFINS", "CBS", "IBS", "ICMS_INTERNO"];
 
 export const UFS = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA",
