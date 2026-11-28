@@ -12,6 +12,7 @@ painel com indicadores e *insights*, o que precisa de correção no catálogo.
 - **Dashboard** com KPIs clicáveis (prejuízo, margem baixa/alta, estoque, custo médio do ML) e *insights* acionáveis.
 - **Anúncios** e **Produtos** (por SKU), com custo e medidas aplicados a todos os anúncios do SKU.
 - **Frete divergente**: compara o frete cobrado pelo ML com o frete real estimado pela cubagem.
+- **Impostos e reforma tributária**: regime (Simples, Presumido, Real), PIS/Cofins, CBS/IBS e redução do ICMS ano a ano, com simulação de 2027 a 2033 e ICMS sugerido pela UF.
 - **Simulador** de anúncio (Clássico × Premium) e **calculadora de frete**.
 - **Sincronização automática** (00:00 e 12:00) e por *webhooks* do Mercado Livre.
 - **Conexão com o ML em 1 clique** (OAuth 2.0 + PKCE) e **exportação para Excel**.
@@ -41,6 +42,7 @@ O passo a passo completo está em [docs/rodando-localmente.md](docs/rodando-loca
 | [Rodando localmente](docs/rodando-localmente.md) | Pré-requisitos, `.env`, banco, scripts, testes e solução de problemas |
 | [Arquitetura](docs/arquitetura.md) | Camadas, decisões de projeto, estrutura de pastas, modelo de dados e segurança |
 | [Regras de negócio e funcionalidades](docs/regras-de-negocio.md) | Cálculo de lucro/margem, saúde do anúncio, frete divergente, módulos e modo teste |
+| [Impostos e reforma tributária](docs/impostos.md) | Regimes, CBS/IBS, transição ano a ano, ICMS pela UF, exemplos, limitações e o que validar com contador |
 | [Integração com o Mercado Livre](docs/integracao-mercado-livre.md) | OAuth + PKCE, tokens, endpoints usados, *webhooks* e particularidades da API |
 | [Rotas e API](docs/rotas-e-api.md) | Mapa de rotas web e da API JSON `/api` |
 | [Variáveis de ambiente](docs/variaveis-de-ambiente.md) | Todas as variáveis do `.env` |

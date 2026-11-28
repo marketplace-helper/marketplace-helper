@@ -4,6 +4,9 @@
 
 ## Cálculo financeiro
 
+> Guia dos impostos em linguagem simples (regimes, transição, exemplos, limitações):
+> [Impostos e reforma tributária](impostos.md).
+
 O cálculo central está em `calcService.js::calcularCustoProduto(item, ctx)` (o nome antigo
 `computeProfit` continua exportado). `ctx` é o **contexto tributário** do usuário
 (`tributos/contexto.js::criarContextoTributario(userId, { ano })`): as regras da tela *Regras* e
