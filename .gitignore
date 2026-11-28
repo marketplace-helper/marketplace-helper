@@ -8,5 +8,3 @@ exports/
 .DS_Store
 npm-debug.log*
 .claude/settings.local.json
-tmp/models/
-.model-cache/
